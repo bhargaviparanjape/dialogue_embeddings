@@ -5,10 +5,17 @@ NO_MODEL_ERR = "Model {} not in MODEL_REGISTRY! Available models are {}"
 
 MODEL_REGISTRY = {}
 
+use_cuda = torch.cuda.is_available()
+FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
+LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
+ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
+
+
 def variable(v, arg_use_cuda=True, volatile=False):
     if torch.cuda.is_available() and arg_use_cuda:
         return Variable(v, volatile=volatile).cuda()
     return Variable(v, volatile=volatile)
+
 
 def RegisterModel(model_name):
 	"""Registers a model."""

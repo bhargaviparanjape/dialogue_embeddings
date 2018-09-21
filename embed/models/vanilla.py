@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from embed.models.factory import RegisterModel, variable
+from embed.models.factory import RegisterModel, variable, FloatTensor, ByteTensor, LongTensor
 from embed.models import factory as model_factory
 import numpy as np
 from torch.nn import functional
@@ -84,16 +84,16 @@ class VanillaModel(nn.Module):
 		batch_lengths = batch['conversation_lengths']
 
 		length_sort = np.argsort(batch_lengths)[::-1].copy()
-		unsort = variable(torch.LongTensor(np.argsort(length_sort)))
-		conversation_mask_sorted = variable(torch.FloatTensor(batch['conversation_mask'])[length_sort])
-		conversation_mask = torch.LongTensor(batch['conversation_mask'])
+		unsort = variable(LongTensor(np.argsort(length_sort)))
+		conversation_mask_sorted = variable(FloatTensor(batch['conversation_mask'])[length_sort])
+		conversation_mask = LongTensor(batch['conversation_mask'])
 		lengths_sorted = np.array(batch_lengths)[length_sort]
 		sort = length_sort
 
 
-		options_tensor = torch.LongTensor(batch['next_utterance_options_list'])
+		options_tensor = LongTensor(batch['next_utterance_options_list'])
 		gold_ids = np.array(batch['next_utterance_gold_ids'])
-		goldids_variable = torch.LongTensor(batch['next_utterance_gold_ids'])
+		goldids_variable = LongTensor(batch['next_utterance_gold_ids'])
 		## to reshape conversations
 		max_num_utterances_batch = batch['max_num_utterances']
 		return batch_size, goldids_variable, conversation_mask, elmo_embeddings, input_mask_variable, \
