@@ -2,8 +2,9 @@ from abc import ABCMeta
 from embed.dataloaders.factory import RegisterBatcher
 from collections import defaultdict
 import numpy as np
-from allennlp.commands.elmo import Elmo, batch_to_ids
+from allennlp.modules.elmo import Elmo, batch_to_ids
 import random
+import pdb
 
 class AbstractDataLoader():
 	__metaclass__ = ABCMeta
@@ -17,7 +18,7 @@ class ConversationBatcher(AbstractDataLoader):
 	def get_batches(self, args, dataset):
 		mode = args.run_mode
 		batch_size = args.batch_size
-
+		
 		def create_conversation_batch(batch_data):
 			## all utterances in all conversations of a batch should be masked and each conversation in batch must have same length
 
@@ -66,7 +67,10 @@ class ConversationBatcher(AbstractDataLoader):
 
 
 
-
+			#character_ids = batch_to_ids(utterance_list)
+			#dict_ = ee(character_ids)
+			#embeddings = dict_['elmo_representations'][0]
+			#input_mask = dict_['mask']
 			# character_ids = batch_to_id(utterance_list)
 			batch['utterance_list'] = utterance_list
 			batch['next_utterance_options_list'] = next_utterance_options_list
@@ -94,7 +98,7 @@ class ConversationBatcher(AbstractDataLoader):
 					batch_data = list(bucket[begin_index:end_index])
 					batch = create_conversation_batch(batch_data)
 					batches.append(batch)
-					return batches
+			return batches
 
 		if mode == "train":
 			train_batches = create_bucket_batches(dataset.train_dataset)

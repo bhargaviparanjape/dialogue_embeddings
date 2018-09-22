@@ -34,7 +34,8 @@ def get_model(args, model_name, logger=None):
 
 	if model_name in MODEL_REGISTRY:
 		model = MODEL_REGISTRY[model_name](args)
-
+	if args.use_cuda:
+		model = model.cuda()
 	return model
 
 

@@ -10,7 +10,7 @@ class VanillaModel(nn.Module):
 	def __init__(self, args):
 		super(VanillaModel, self).__init__()
 		self.args = args
-		self.embedding_layer = model_factory.get_model(args, args.embedding)
+		
 		self.lookup_layer = model_factory.get_model(args, args.lookup)
 		self.encoding_layer = model_factory.get_model(args, args.encoding)
 
@@ -74,12 +74,14 @@ class VanillaModel(nn.Module):
 		predictions = torch.sort(logits_flat.squeeze(2), descending=True)[1][:, 0]
 		return predictions
 
-	def prepare_for_gpu(self, batch):
+	def prepare_for_gpu(self, batch, embedding_layer):
 		## outputform for the prepare for gpu function
 		## batch_size, gold_output, *input
 		batch_size = int(len(batch['utterance_list'])/batch['max_num_utterances'])
-		elmo_embeddings, input_mask = self.embedding_layer.get_embeddings(batch['utterance_list'])
 
+		elmo_embeddings, input_mask = embedding_layer.get_embeddings(batch['utterance_list'])
+		if self.args.use_cuda:
+			elmo_embeddings = elmo_embeddings.cuda()
 		input_mask_variable = variable(input_mask).float()
 		batch_lengths = batch['conversation_lengths']
 
@@ -108,11 +110,9 @@ class VanillaModel(nn.Module):
 		indices = input[1]
 		if self.args.use_cuda:
 			indices = indices.data.cpu()
-		else:
-			indices = indices.data
-		if self.args.use_cuda:
 			loss = loss.data.cpu()
 		else:
+			indices = indices.data
 			loss = loss.data
 		return loss, indices
 

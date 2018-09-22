@@ -2,7 +2,9 @@ import torch
 from torch import optim
 from embed.dataloaders import factory as dataloader_factory
 from embed.models import factory as model_factory
+from embed.models.blocks.embeddings import ELMoEmbedding
 from embed.learn import optimizers, metrics
+from allennlp.modules.elmo import Elmo, batch_to_ids
 import logging
 
 class LearnerState:
@@ -20,6 +22,9 @@ class LearnerState:
 
 def train(args, dataset, model, logger):
 	train_batches, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
+	#embedding_layer = model_factory.get_model(args, args.embedding, logger)
+	embedding_layer = ELMoEmbedding(args)
+
 
 	clip_threshold = args.clip_threshold
 	eval_interval = args.eval_interval
@@ -29,7 +34,7 @@ def train(args, dataset, model, logger):
 	learning_state = LearnerState()
 	train_metric = metrics.get_metric(args)
 
-
+	print(len(train_batches))
 	for epoch in range(args.num_epochs):
 		logger.info("Starting epoch {}".format(epoch + 1))
 		for iteration in range(len(train_batches)):
@@ -37,13 +42,14 @@ def train(args, dataset, model, logger):
 			if (iteration + 1) % eval_interval == 0:
 				logger.info("epoch: {0} iteration: {1} train loss: {2}".format(epoch + 1, iteration + 1, learning_state.get_loss()))
 				dev_accuracy = eval(args, validation_batches, model).compute_metric()
+
 				train_accuracy = train_metric.compute_metric()
 				learning_state.validation_history.append(dev_accuracy)
 				logger.info("epoch: {0} iteration: {1} dev accuracy: {2}".format(epoch + 1, iteration + 1, dev_accuracy))
 				logger.info("epoch: {0} iteration: {1} train accuracy: {2}".format(epoch + 1, iteration + 1, train_accuracy))
 
 			batch = train_batches[iteration]
-			batch_size, gold_output, mask, *input = model.prepare_for_gpu(batch)
+			batch_size, gold_output, mask, *input = model.prepare_for_gpu(batch, embedding_layer)
 
 			loss, *output = model(input, batch_size)
 
@@ -53,6 +59,13 @@ def train(args, dataset, model, logger):
 			optimizer.step()
 
 			loss, output = model.prepare_for_cpu(loss, *output)
+			if args.use_cuda:
+				mask = mask.data.cpu()
+				gold_output = gold_output.data.cpu()
+			else:
+				mask = mask.data
+				gold_output = gold_output.data
+
 
 			learning_state.train_denom += batch_size
 			learning_state.train_loss += loss
@@ -69,17 +82,24 @@ def train(args, dataset, model, logger):
 def eval(args, batches, model, mode="dev"):
 	model.train(False)
 	dev_metric = metrics.get_metric(args)
+	embedding_layer = ELMoEmbedding(args)
 	for iteration in range(len(batches)):
 		batch = batches[iteration]
-		batch_size, gold_output, mask, *input = model.prepare_for_gpu(batch)
+		batch_size, gold_output, mask, *input = model.prepare_for_gpu(batch, embedding_layer)
 
 		indices = model.eval(input, batch_size)
 		if args.use_cuda:
 			indices = indices.data.cpu()
+			mask = mask.data.cpu()
+			gold_output = gold_output.data.cpu()
 		else:
 			indices = indices.data
+			mask = mask.data
+			gold_output = gold_output.data
+
 		# model.prepare_for_cpu(None, output)
 		dev_metric.update_metric(batch_size, indices, gold_output, mask)
+	model.train(True)
 	return dev_metric
 
 def evaluate(args, dataset, model, logger):

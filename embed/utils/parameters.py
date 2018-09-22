@@ -26,15 +26,15 @@ def parse_arguments():
 	parser.add_argument("--metric", type=str, default='accuracy')
 
 
-	parser.add_argument("--embed_size", type=int, default=25)
-	parser.add_argument("--hidden_size", type=int, default=25)
-	parser.add_argument("--batch_size", type=int, default=3)
+	parser.add_argument("--embed_size", type=int, default=1024)
+	parser.add_argument("--hidden_size", type=int, default=256)
+	parser.add_argument("--batch_size", type=int, default=32)
 	parser.add_argument("--optimizer", type=str, default = "adam")
-	parser.add_argument("--num_epochs", type=int, default=10)
+	parser.add_argument("--num_epochs", type=int, default=20)
 	parser.add_argument("--dropout", type=float, default=0.2)
 	parser.add_argument("--l_rate", type=float, default=0.0001)
 	parser.add_argument("--clip_threshold", type=float, default=10)
-	parser.add_argument("--eval_interval", type=int, default=1)
+	parser.add_argument("--eval_interval", type=int, default=20)
 	parser.add_argument("--patience", type=int, default=20)
 
 	args = parser.parse_args()
@@ -63,7 +63,7 @@ def get_parameters(args):
 	vars(args)['lookup_kernel_size'] = 3
 	vars(args)['lookup_stride'] = 1
 	vars(args)['encoder_input_size'] = 1024
-	vars(args)['encoder_hidden_size'] =  50
+	vars(args)['encoder_hidden_size'] =  256
 	vars(args)['encoder_num_layers'] = 1
 
 	return args
