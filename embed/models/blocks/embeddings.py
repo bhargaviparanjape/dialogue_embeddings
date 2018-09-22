@@ -23,12 +23,12 @@ class ELMoEmbedding():
 		#if self.args.use_cuda:
 		#	character_ids = character_ids.cuda()
 		#for u in character_ids.data.numpy():
-		embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024)
-		mask= torch.Tensor(character_ids.shape[0], character_ids.shape[1])
-		for i in range(character_ids.shape[0]):
-			dict = self.ee(character_ids[i].unsqueeze(0))
-			embeddings[i] = dict['elmo_representations'][0]
-			mask[i] = dict['mask']
+		embeddings = torch.zeros(character_ids.shape[0], character_ids.shape[1], 1024)
+		mask= torch.zeros(character_ids.shape[0], character_ids.shape[1])
+		for i in range(0, character_ids.shape[0], 2):
+			dict = self.ee(character_ids[i:i+2].unsqueeze(0))
+			embeddings[i:i+2] = dict['elmo_representations'][0]
+			mask[i:i+2] = dict['mask']
 
 		return embeddings, mask
 

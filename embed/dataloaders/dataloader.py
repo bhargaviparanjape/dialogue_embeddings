@@ -5,6 +5,7 @@ import numpy as np
 from allennlp.modules.elmo import Elmo, batch_to_ids
 import random
 import pdb
+from tqdm import tqdm
 
 class AbstractDataLoader():
 	__metaclass__ = ABCMeta
