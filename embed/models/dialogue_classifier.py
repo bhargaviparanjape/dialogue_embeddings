@@ -21,7 +21,11 @@ class VanillaModel(nn.Module):
 		[embeddings, input_mask_variable, \
 		 sort, unsort, conversation_mask_sorted, lengths_sorted, max_num_utterances_batch, \
 		 options_tensor, goldids_variable] = input[0]
-		lookup = self.lookup_layer(embeddings, input_mask_variable)
+
+		if self.args.embedding != "elmo":
+			lookup = self.lookup_layer(embeddings, input_mask_variable)
+		else:
+			lookup = embeddings
 		## reshape based on max_input_length in batch dimension
 		sequence_batch_size = int(lookup.shape[0] / max_num_utterances_batch)
 		reshaped_lookup = lookup.view(sequence_batch_size, max_num_utterances_batch, lookup.shape[1])
@@ -51,7 +55,10 @@ class VanillaModel(nn.Module):
 		[embeddings, input_mask_variable, \
 		 sort, unsort, conversation_mask_sorted, lengths_sorted, max_num_utterances_batch, \
 		 options_tensor, goldids_variable] = input[0]
-		lookup = self.lookup_layer(embeddings, input_mask_variable)
+		if self.args.embedding != "elmo":
+			lookup = self.lookup_layer(embeddings, input_mask_variable)
+		else:
+			lookup = embeddings
 		## reshape based on max_input_length in batch dimension
 		sequence_batch_size = int(lookup.shape[0] / max_num_utterances_batch)
 		reshaped_lookup = lookup.view(sequence_batch_size, max_num_utterances_batch, lookup.shape[1])
