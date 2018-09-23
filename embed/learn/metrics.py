@@ -36,9 +36,9 @@ class Accuracy():
 
 	def update_metric(self, batch_size, *input):
 		mask = input[2].view(-1,1).squeeze(1)
-		self.total += mask.sum()
+		self.total += mask.sum().data.numpy()
 		predicted = input[0]*mask
 		correct = input[1]*mask
-		self.correct += ((predicted == correct).numpy()*mask).sum()
+		self.correct += ((predicted == correct).long()*mask).sum().numpy()
 
 
