@@ -42,7 +42,7 @@ def train(args, dataset, model, logger):
 			optimizer.zero_grad()
 			if (iteration + 1) % eval_interval == 0:
 				logger.info("epoch: {0} iteration: {1} train loss: {2}".format(epoch + 1, iteration + 1, learning_state.get_loss()))
-				dev_accuracy = eval(args, validation_batches, model).compute_metric()
+				dev_accuracy = eval(args, validation_batches, model, embedding_layer).compute_metric()
 
 				train_accuracy = train_metric.compute_metric()
 				learning_state.validation_history.append(dev_accuracy)
@@ -80,10 +80,11 @@ def train(args, dataset, model, logger):
 		train_batches,_,_ = dataloader_factory.get_batches(args, dataset)
 
 
-def eval(args, batches, model, mode="dev"):
+def eval(args, batches, model, embedding_layer, mode="dev"):
 	model.train(False)
 	dev_metric = metrics.get_metric(args)
-	embedding_layer = ELMoEmbedding(args)
+
+
 	for iteration in range(len(batches)):
 		batch = batches[iteration]
 		batch_size, gold_output, mask, *input = model.prepare_for_gpu(batch, embedding_layer)
@@ -103,10 +104,15 @@ def eval(args, batches, model, mode="dev"):
 	model.train(True)
 	return dev_metric
 
+def store_embeddings(args, dataset, model, logger):
+	## batch and run evaluate and return the dialogue embeddings for that conversation id
+	raise NotImplementedError
+
 def evaluate(args, dataset, model, logger):
 	_, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
-	validation_metric = eval(validation_batches, model, mode="dev")
-	test_metric = eval(test_batches, model, mode="test")
+	embedding_layer = model_factory.get_model(args, args.embedding, logger)
+	validation_metric = eval(validation_batches, model, embedding_layer, mode="dev")
+	test_metric = eval(test_batches, model, embedding_layer, mode="test")
 
 
 

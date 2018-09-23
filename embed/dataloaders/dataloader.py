@@ -48,6 +48,7 @@ class ConversationBatcher(AbstractDataLoader):
 			utterance_list = []
 			utterance_ids_list = []
 			conversation_lengths = []
+			conversation_ids = []
 
 			batch = {}
 
@@ -104,6 +105,7 @@ class ConversationBatcher(AbstractDataLoader):
 					prev_utterance_bow_list.append(prev_utterance_bow)
 
 				conversation_lengths.append(length)
+				conversation_ids.append(conversation.id)
 				conversation_mask.append([1]*length + [0]*(max_num_utterances - length))
 				## apend dummy utterances
 				for i in range(max_num_utterances - length):
@@ -126,6 +128,7 @@ class ConversationBatcher(AbstractDataLoader):
 			batch['label'] = labels
 
 			batch['conversation_lengths'] = conversation_lengths
+			batch['conversation_ids'] = conversation_ids
 			batch['conversation_mask'] = conversation_mask
 			batch['max_num_utterances'] = max_num_utterances
 

@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import numpy as np
+import json
 from embed.models.factory import RegisterModel
 from allennlp.modules.elmo import Elmo, batch_to_ids
 import pdb
@@ -32,6 +33,28 @@ class ELMoEmbedding():
 			mask[i:i+2] = dict['mask']
 
 		return embeddings, mask
+
+@RegisterModel('avg_elmo')
+class AverageELMoEmbedding():
+	def __init__(self, args):
+		self.embedding_path = args.embedding_path
+		self.embed_size = args.embed_size
+		self.args = args
+		self.embeddings = self.load_embeddings()
+
+	def load_embeddings(self):
+		self.embeddings = {}
+		with open(self.embedding_path) as fin:
+			for line in fin:
+				dict =  json.loads(line)
+				self.embeddings[dict["id"]] = dict["embeddings"]
+
+
+	def lookup(self, IDS):
+		pass
+		## MAX CONVERSATION LENGTH
+
+
 
 @RegisterModel('glove')
 class GloveEmbeddings():
