@@ -23,7 +23,7 @@ class LearnerState:
 def train(args, dataset, model, logger):
 	vars(args)["vocabulary"] = dataset.vocabulary.vocabulary
 	train_batches, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
-	embedding_layer = model_factory.get_model(args, args.embedding, logger)
+	embedding_layer = model_factory.get_embeddings(args, args.embedding, logger)
 	# embedding_layer = ELMoEmbedding(args)
 
 

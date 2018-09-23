@@ -7,9 +7,9 @@ from torch.nn import functional
 
 
 @RegisterModel('dialogue_classifier')
-class VanillaModel(nn.Module):
+class DialogueClassifier(nn.Module):
 	def __init__(self, args):
-		super(VanillaModel, self).__init__()
+		super(DialogueClassifier, self).__init__()
 		self.args = args
 
 		self.lookup_layer = model_factory.get_model(args, args.lookup)

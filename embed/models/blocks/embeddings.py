@@ -41,6 +41,8 @@ class GloveEmbeddings():
 		self.args = args
 		embs = self.load_embeddings(args.vocabulary)
 		self.lookup = LookupEncoder(args, len(self.args.vocabulary), self.args.embed_size, embs)
+		if args.use_cuda:
+			self.lookup = self.lookup.cuda()
 
 
 	def load_embeddings(self, vocabulary):
