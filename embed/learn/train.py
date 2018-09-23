@@ -21,9 +21,10 @@ class LearnerState:
 			return None
 
 def train(args, dataset, model, logger):
+	vars(args)["vocabulary"] = dataset.vocabulary.vocabulary
 	train_batches, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
-	#embedding_layer = model_factory.get_model(args, args.embedding, logger)
-	embedding_layer = ELMoEmbedding(args)
+	embedding_layer = model_factory.get_model(args, args.embedding, logger)
+	# embedding_layer = ELMoEmbedding(args)
 
 
 	clip_threshold = args.clip_threshold

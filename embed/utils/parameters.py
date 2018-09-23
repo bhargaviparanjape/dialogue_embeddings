@@ -11,6 +11,7 @@ def parse_arguments():
 	parser.add_argument("--seed", type=int, default=0)
 	parser.add_argument("--truncate_dataset", action="store_true", default=False)
 	parser.add_argument("--model_path", type=str, default=None)
+	parser.add_argument("--embedding_path", type=str, default=None)
 	parser.add_argument("--output_path", type=str, default=None)
 	parser.add_argument("--logging_path", type=str, default=None)
 	parser.add_argument("--log_level", type=str, default=logging.INFO)
@@ -18,8 +19,8 @@ def parse_arguments():
 	parser.add_argument("--dataset_paths", type=str, default="../datasets/swda/swda")
 	parser.add_argument("--batch_function", type=str, default="conversation_length")
 
-	parser.add_argument("--model", type=str, default="vanilla")
-	parser.add_argument("--embedding", type=str, default="elmo")
+	parser.add_argument("--model", type=str, default="dialogue_classifier")
+	parser.add_argument("--embedding", type=str, default="glove")
 	parser.add_argument("--lookup", type=str, default="avg")
 	parser.add_argument("--encoding", type=str, default="bilstm")
 	parser.add_argument("--objective", type=str, default="cross_entropy")
@@ -57,13 +58,15 @@ def get_parameters(args):
 
 	### MODEL SPECIFIC ARGUMENTS
 	### TO	a config file
-	# NOTE: CHANGE args
+	vars(args)['K'] = 4
+
+	## Objective : Classification ##
 
 	##  vanilla ##
 	vars(args)['lookup_kernel_size'] = 3
 	vars(args)['lookup_stride'] = 1
-	vars(args)['encoder_input_size'] = 1024
-	vars(args)['encoder_hidden_size'] =  256
+	vars(args)['encoder_input_size'] = 300
+	vars(args)['encoder_hidden_size'] =  50
 	vars(args)['encoder_num_layers'] = 1
 
 	return args

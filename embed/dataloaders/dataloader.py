@@ -6,84 +6,132 @@ from allennlp.modules.elmo import Elmo, batch_to_ids
 import random
 import pdb
 from tqdm import tqdm
+from embed.utils.tools import pad_seq
 
 class AbstractDataLoader():
 	__metaclass__ = ABCMeta
 
+
+@RegisterBatcher('conversation_snippet')
+class ConversationSnippetBatcher(AbstractDataLoader):
+	def __init__(self, args):
+		self.args = args
+
+## all utterances in all conversations of a batch should be masked and each conversation in batch must have same length
 @RegisterBatcher('conversation_length')
 class ConversationBatcher(AbstractDataLoader):
 	def __init__(self, args):
 		self.args = args
-		self.K = 4
+		self.K = args.K
 
 	def get_batches(self, args, dataset):
 		mode = args.run_mode
 		batch_size = args.batch_size
 		
-		def create_conversation_batch(batch_data):
-			## all utterances in all conversations of a batch should be masked and each conversation in batch must have same length
+		def create_conversation_batch(batch_data, vocabulary):
 
-			## batchSize * N *
-			next_utterance_options_list = []
-			gold_ids = []
+			## for classification
+			utterance_options_list = []
+			next_gold_ids = []
+			prev_gold_ids = []
+
+			## next utterance vocabulary ids for next sequence prediction
+			next_utterance_ids_list = []
+			previous_utterance_ids_list = []
+			next_utterance_bow_list = []
+			prev_utterance_bow_list= []
+
+			## category classification
+			labels = []
+
 			conversation_mask = []
-			batch = {}
 			utterance_list = []
+			utterance_ids_list = []
 			conversation_lengths = []
+
+			batch = {}
 
 			if args.truncate_dataset:
 				for idx, conversation in enumerate(batch_data):
 					random_short_length = random.sample(range(5,10),1)[0]
 					batch_data[idx].utterances = conversation.utterances[:random_short_length]
 
-			max_num_utterances = max([len(c.utterances) for c in batch_data]) ## N + 1(last null utterance has to be there for last actual utterance)
+			max_num_utterances = max([len(c.utterances) for c in batch_data])
+			max_utterance_length = max([max([len(u.tokens) for u in c.utterances]) for c in batch_data])
 			for c_idx, conversation in enumerate(batch_data):
 				length = len(conversation.utterances)
 				for u_idx, u in enumerate(conversation.utterances):
 					utterance_list.append(u.tokens)
+					utterance_ids_list.append(pad_seq(vocabulary.get_indices(u.tokens), max_utterance_length))
+					labels.append(u.label)
 					## randomly sample K items in conversation
 					utterance_samples = random.sample(range(length), self.K)
-					## last utterance predicts the previous utterance
+
+					## last utterance predicts the previous utterance and first utterance predicts next utterance
 					if u_idx == length - 1:
-						correct_id = u_idx-1
+						next_id = u_idx-1
+						prev_id = u_idx-1
+						num_samples = self.K - 1
+					elif u_idx == 0:
+						next_id = u_idx + 1
+						prev_id = u_idx + 1
+						num_samples = self.K - 1
 					else:
-						correct_id = u_idx+1
-					if correct_id not in utterance_samples:
-						utterance_samples[random.sample(range(self.K),1)[0]] = correct_id
+						next_id = u_idx+1
+						prev_id = u_idx-1
+						num_samples = self.K - 2
+					next_utterance_ids = vocabulary.get_indices(conversation.utterances[next_id].tokens)
+					previous_utterance_ids = vocabulary.get_indices(conversation.utterances[prev_id].tokens)
+					prev_utterance_bow = list(set(previous_utterance_ids))
+					next_utterance_bow = list(set(next_utterance_ids))
+
+					## randomly sample K items in conversation
+					options = list(set(range(length)) - set([next_id, prev_id]))
+					utterance_samples = np.random.choice(options, num_samples, replace=False)
+					utterance_samples = np.concatenate((utterance_samples, list(set([prev_id,next_id]))), axis=0)
 					np.random.shuffle(utterance_samples)
-					gold_index = utterance_samples.index(correct_id)
+					gold_next_index = np.where(utterance_samples==next_id)[0][0]
+					gold_prev_index = np.where(utterance_samples==prev_id)[0][0]
 
-					utterance_samples = [s + c_idx*max_num_utterances for s in utterance_samples]
-					# gold_index += c_idx*max_num_utterances
-
-					next_utterance_options_list.append(utterance_samples)
-					gold_ids.append(gold_index)
+					# for easy indexing when utterances of a batch are in one contiguous list
+					utterance_samples = [sample + c_idx*max_num_utterances for sample in utterance_samples]
+					utterance_options_list.append(utterance_samples)
+					next_gold_ids.append(gold_next_index)
+					prev_gold_ids.append(gold_prev_index)
+					next_utterance_ids_list.append(next_utterance_ids)
+					previous_utterance_ids_list.append(previous_utterance_ids)
+					next_utterance_bow_list.append(next_utterance_bow)
+					prev_utterance_bow_list.append(prev_utterance_bow)
 
 				conversation_lengths.append(length)
 				conversation_mask.append([1]*length + [0]*(max_num_utterances - length))
+				## apend dummy utterances
 				for i in range(max_num_utterances - length):
 					utterance_list.append([])
-					next_utterance_options_list.append([length + i + c_idx*max_num_utterances]*self.K)
-					gold_ids.append(0)
+					utterance_ids_list.append(pad_seq([], max_utterance_length))
+					utterance_options_list.append([length + i + c_idx*max_num_utterances]*self.K)
+					next_gold_ids.append(0)
+					prev_gold_ids.append(0)
 
 
-
-			#character_ids = batch_to_ids(utterance_list)
-			#dict_ = ee(character_ids)
-			#embeddings = dict_['elmo_representations'][0]
-			#input_mask = dict_['mask']
-			# character_ids = batch_to_id(utterance_list)
 			batch['utterance_list'] = utterance_list
-			batch['next_utterance_options_list'] = next_utterance_options_list
-			batch['next_utterance_gold_ids'] = gold_ids
+			batch['utterance_ids'] = np.array(utterance_ids_list)
+			batch['input_mask'] = (1*(batch['utterance_ids']!= 0))
+
+			batch['utterance_options_list'] = utterance_options_list
+			batch['next_utterance_gold'] = next_gold_ids
+			batch['next_utterance_ids'] = next_utterance_ids_list
+			batch['prev_utterance_gold'] = prev_gold_ids
+			batch['prev_utterance_ids'] = previous_utterance_ids_list
+			batch['label'] = labels
+
 			batch['conversation_lengths'] = conversation_lengths
 			batch['conversation_mask'] = conversation_mask
-			## to reshape conversations
 			batch['max_num_utterances'] = max_num_utterances
-			## TODO: no DA being sent
+
 			return batch
 
-		def create_bucket_batches(dataset):
+		def create_bucket_batches(dataset, vocabulary):
 			batches = []
 			buckets = defaultdict(list)
 			for data_item in dataset:
@@ -97,18 +145,18 @@ class ConversationBatcher(AbstractDataLoader):
 					begin_index = i * batch_size
 					end_index = begin_index + cur_batch_size
 					batch_data = list(bucket[begin_index:end_index])
-					batch = create_conversation_batch(batch_data)
+					batch = create_conversation_batch(batch_data, vocabulary)
 					batches.append(batch)
 			return batches
 
 		if mode == "train":
-			train_batches = create_bucket_batches(dataset.train_dataset)
-			valid_batches = create_bucket_batches(dataset.valid_dataset)
-			test_batches = create_bucket_batches(dataset.test_dataset)
+			train_batches = create_bucket_batches(dataset.train_dataset, dataset.vocabulary)
+			valid_batches = create_bucket_batches(dataset.valid_dataset, dataset.vocabulary)
+			test_batches = create_bucket_batches(dataset.test_dataset, dataset.vocabulary)
 			np.random.shuffle(train_batches)
 			return train_batches, valid_batches, test_batches
 		elif mode =="test":
-			valid_batches = create_bucket_batches(dataset.valid_dataset)
-			test_batches = create_bucket_batches(dataset.test_dataset)
+			valid_batches = create_bucket_batches(dataset.valid_dataset, dataset.vocabulary)
+			test_batches = create_bucket_batches(dataset.test_dataset, dataset.vocabulary)
 			return None,valid_batches,test_batches
 

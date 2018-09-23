@@ -40,6 +40,6 @@ class Average(nn.Module):
 		## pooling only happens over tokens not sure of the format here
 		## mean should take mask into account
 		data, mask = input[0], input[1]
-		output = data.sum(1)/mask.sum(1).unsqueeze(1)
+		output = (data * mask.unsqueeze(2)).sum(1) / mask.sum(1).unsqueeze(1)
 		output[output != output] = 0
 		return output

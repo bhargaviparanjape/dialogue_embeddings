@@ -16,7 +16,7 @@ class SwitchBoard(AbstractDataset):
 		def __init__(self, id, utterance):
 			self.index = utterance.utterance_index
 			self.id = id
-			self.da_tag = DAMSL_TAGSET[utterance.damsl_act_tag().strip()] # index for DAMSL starts from 1
+			self.label = DAMSL_TAGSET[utterance.damsl_act_tag().strip()] # index for DAMSL starts from 1
 			self.speaker = utterance.caller
 			#TODO: clean text before processing
 			self.tokens = utterance.text_words()

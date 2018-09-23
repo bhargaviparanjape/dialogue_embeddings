@@ -27,6 +27,15 @@ def RegisterModel(model_name):
 	return decorator
 
 
+def get_embeddings(args, embedding_layer_name, logger=None):
+	if embedding_layer_name not in MODEL_REGISTRY:
+		raise Exception(
+			NO_MODEL_ERR.format(embedding_layer_name, MODEL_REGISTRY.keys()))
+	if embedding_layer_name in MODEL_REGISTRY:
+		model = MODEL_REGISTRY[embedding_layer_name](args)
+	return model
+
+
 def get_model(args, model_name, logger=None):
 	if model_name not in MODEL_REGISTRY:
 		raise Exception(
