@@ -15,15 +15,29 @@ class DialogueActClassifier(nn.Module):
 		self.lookup_layer = model_factory.get_model(args, args.lookup)
 		self.encoding_layer = model_factory.get_model(args, args.encoding)
 
-		self.next_utterance_scorer = nn.Bilinear(2 * args.encoder_hidden_size, 2 * args.encoder_hidden_size, 1)
-		self.prev_utterance_scorer = nn.Bilinear(2 * args.encoder_hidden_size, 2 * args.encoder_hidden_size, 1)
+		if args.encoding == "bilstm":
+			hidden_size = 2 * args.encoder_hidden_size
+		else:
+			hidden_size = 2 * args.encoder_hidden_size * args.encoder_num_layers
+		self.next_utterance_scorer = nn.Bilinear(hidden_size, hidden_size, 1)
+		self.prev_utterance_scorer = nn.Bilinear(hidden_size,hidden_size, 1)
 
 		self.classifier = nn.Sequential(
-			nn.Linear(2 * args.encoder_hidden_size, 100),
+			nn.Linear(hidden_size, 100),
 			nn.ReLU(),
 			nn.Linear(100, self.args.output_size))
 		self.classifier_loss = torch.nn.CrossEntropyLoss()
 
+	def masked_softmax(self, input, mask):
+		maxes = torch.max(input + torch.log(mask), 1, keepdim=True)[0]
+		masked_exp_xs = torch.exp(input - maxes) * mask
+		masked_exp_xs[masked_exp_xs != masked_exp_xs] = 0
+		normalization_factor = masked_exp_xs.sum(1, keepdim=True)
+		# probs = masked_exp_xs / normalization_factor
+		score_log_probs = (input - maxes - torch.log(normalization_factor)) * mask
+		score_log_probs[score_log_probs != score_log_probs] = 0
+		loss = (-(score_log_probs * mask)).sum() / mask.sum()
+		return loss
 
 	def forward(self, *input):
 		[embeddings, input_mask_variable, \
@@ -39,8 +53,15 @@ class DialogueActClassifier(nn.Module):
 		reshaped_lookup = lookup.view(sequence_batch_size, max_num_utterances_batch, lookup.shape[1])
 		## sort utterances then apply encoding layer
 		sorted_lookup = reshaped_lookup[sort]
+
 		## get hidden representations
-		encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
+		if self.args.encoding == "bilstm":
+			encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
+		else:
+			encoded = self.encoding_layer(sorted_lookup, conversation_mask_sorted)
+			encoded = torch.cat((encoded[0, :], encoded[1, :]), 2)
+
+
 		encoded = encoded[unsort].view(sequence_batch_size * max_num_utterances_batch, -1, encoded.shape[2])
 		## do lookup based on indices
 		options = torch.index_select(encoded.squeeze(1), 0, options_tensor.view(-1))
@@ -64,7 +85,10 @@ class DialogueActClassifier(nn.Module):
 		prev_predictions = torch.sort(prev_logits_flat.squeeze(2), descending=True)[1][:, 0]
 
 		label_logits = self.classifier(encoded.squeeze(1))
-		## Not including DA prediction loss as part of the objective
+		label_log_probs_flat = functional.log_softmax(label_logits, dim=1)
+		label_losses_flat = -torch.gather(label_log_probs_flat, dim=1, index=labels.view(-1, 1))
+		label_losses = label_losses_flat * conversation_mask.view(sequence_batch_size * max_num_utterances_batch, -1)
+		label_loss = label_losses.sum()/conversation_mask.float().sum()
 		labels_predictions = torch.sort(label_logits, descending=True)[1][:, 0]
 
 		return loss, tuple([next_predictions, prev_predictions, labels_predictions])
@@ -82,8 +106,15 @@ class DialogueActClassifier(nn.Module):
 		reshaped_lookup = lookup.view(sequence_batch_size, max_num_utterances_batch, lookup.shape[1])
 		## sort utterances then apply encoding layer
 		sorted_lookup = reshaped_lookup[sort]
+
 		## get hidden representations
-		encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
+		if self.args.encoding == "bilstm":
+			encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
+		else:
+			encoded = self.encoding_layer(sorted_lookup, conversation_mask_sorted)
+			encoded = torch.cat((encoded[0, :], encoded[1, :]), 2)
+
+
 		encoded = encoded[unsort].view(sequence_batch_size * max_num_utterances_batch, -1, encoded.shape[2])
 		## do lookup based on indices
 		options = torch.index_select(encoded.squeeze(1), 0, options_tensor.view(-1))

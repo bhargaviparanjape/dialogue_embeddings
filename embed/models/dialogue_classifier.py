@@ -15,13 +15,12 @@ class DialogueClassifier(nn.Module):
 		self.lookup_layer = model_factory.get_model(args, args.lookup)
 		self.encoding_layer = model_factory.get_model(args, args.encoding)
 
-		self.next_utterance_scorer = nn.Bilinear(2 * args.encoder_hidden_size, 2 * args.encoder_hidden_size, 1)
-		self.prev_utterance_scorer = nn.Bilinear(2 * args.encoder_hidden_size, 2 * args.encoder_hidden_size, 1)
-
-		# self.next_utterance_scorer = nn.Bilinear(2 * args.encoder_num_layers * args.encoder_hidden_size,
-		# 										 2 * args.encoder_num_layers * args.encoder_hidden_size, 1)
-		# self.prev_utterance_scorer = nn.Bilinear(2 * args.encoder_num_layers * args.encoder_hidden_size,
-		# 										 2 * args.encoder_num_layers * args.encoder_hidden_size, 1)
+		if args.encoding == "bilstm":
+			hidden_size = 2 * args.encoder_hidden_size
+		else:
+			hidden_size = 2 * args.encoder_hidden_size * args.encoder_num_layers
+		self.next_utterance_scorer = nn.Bilinear(hidden_size, hidden_size, 1)
+		self.prev_utterance_scorer = nn.Bilinear(hidden_size,hidden_size, 1)
 
 	def forward(self, *input):
 		[embeddings, input_mask_variable, \
@@ -38,11 +37,12 @@ class DialogueClassifier(nn.Module):
 		## sort utterances then apply encoding layer
 		sorted_lookup = reshaped_lookup[sort]
 
-
 		## get hidden representations
-		encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
-		# encoded = self.encoding_layer(sorted_lookup, conversation_mask_sorted)
-		# encoded = torch.cat((encoded[0,:], encoded[1,:]), 2)
+		if self.args.encoding == "bilstm":
+			encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
+		else:
+			encoded = self.encoding_layer(sorted_lookup, conversation_mask_sorted)
+			encoded = torch.cat((encoded[0, :], encoded[1, :]), 2)
 
 
 		encoded = encoded[unsort].view(sequence_batch_size * max_num_utterances_batch, -1, encoded.shape[2])
@@ -83,9 +83,11 @@ class DialogueClassifier(nn.Module):
 
 
 		## get hidden representations
-		encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
-		# encoded = self.encoding_layer(sorted_lookup, conversation_mask_sorted)
-		# encoded = torch.cat((encoded[0, :], encoded[1, :]), 2)
+		if self.args.encoding == "bilstm":
+			encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
+		else:
+			encoded = self.encoding_layer(sorted_lookup, conversation_mask_sorted)
+			encoded = torch.cat((encoded[0, :], encoded[1, :]), 2)
 
 
 		encoded = encoded[unsort].view(sequence_batch_size * max_num_utterances_batch, -1, encoded.shape[2])
@@ -107,9 +109,11 @@ class DialogueClassifier(nn.Module):
 
 
 		## get hidden representations
-		encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
-		# encoded = self.encoding_layer(sorted_lookup, conversation_mask_sorted)
-		# encoded = torch.cat((encoded[0, :], encoded[1, :]), 2)
+		if self.args.encoding == "bilstm":
+			encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
+		else:
+			encoded = self.encoding_layer(sorted_lookup, conversation_mask_sorted)
+			encoded = torch.cat((encoded[0, :], encoded[1, :]), 2)
 
 		encoded = encoded[unsort].view(sequence_batch_size * max_num_utterances_batch, -1, encoded.shape[2])
 		## do lookup based on indices

@@ -65,6 +65,8 @@ class BidirectionalAccuracy(Accuracy):
 class BagOfWordMetric():
 	def __init__(self, args):
 		self.args = args
+		self.correct = 0
+		self.total = 0
 
 	def update_metric(self, batch_size, *input):
 		mask = input[2]
@@ -106,4 +108,5 @@ class LabelAccuracy(BidirectionalAccuracy):
 			self.label_accuracy = 0
 			return 0
 		self.label_accuracy = float(self.correct)/self.total
+		## unmask and compute microaveraged F1
 		return self.label_accuracy

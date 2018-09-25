@@ -86,6 +86,8 @@ def train(args, dataset, model, logger):
 			loss, *output = model(input, batch_size)
 
 			loss.backward()
+
+			# loss.detach_()
 			# gradient clipping
 			torch.nn.utils.clip_grad_norm(model.parameters(), clip_threshold)
 			optimizer.step()
