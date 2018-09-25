@@ -4,6 +4,7 @@ from embed.models.factory import RegisterModel, variable, FloatTensor, ByteTenso
 from embed.models import factory as model_factory
 import numpy as np
 from torch.nn import functional
+import pdb
 
 
 @RegisterModel('dialogue_classifier')
@@ -146,7 +147,8 @@ class DialogueClassifier(nn.Module):
 
 		elif self.args.embedding == "avg_elmo":
 			conversation_ids = batch["conversation_ids"]
-			embedding_layer.lookup(conversation_ids, max_num_utterances_batch)
+			utterance_embeddings = embedding_layer.lookup(conversation_ids, max_num_utterances_batch)
+			input_mask = FloatTensor(batch["input_mask"])
 
 		if self.args.use_cuda:
 			utterance_embeddings = utterance_embeddings.cuda()

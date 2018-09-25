@@ -67,9 +67,9 @@ def get_parameters(args):
 	##  vanilla ##
 	vars(args)['lookup_kernel_size'] = 3
 	vars(args)['lookup_stride'] = 1
-	vars(args)['encoder_input_size'] = 300
-	vars(args)['encoder_hidden_size'] =  100
-	vars(args)['encoder_num_layers'] = 2
+	vars(args)['encoder_input_size'] = args.embed_size
+	vars(args)['encoder_hidden_size'] =  args.hidden_size
+	vars(args)['encoder_num_layers'] = 1
 
 	## Hierarchical elmo encoder##
 	vars(args)['elmo_dropout'] = 0.5
