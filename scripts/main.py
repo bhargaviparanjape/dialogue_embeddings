@@ -20,6 +20,8 @@ if __name__ == '__main__':
 	logging.basicConfig(level=logging.DEBUG)
 	logger = logging.getLogger(__name__)
 
+	print(args)
+
 	dataset = dataloader_factory.get_dataset(args,logger)
 	vars(args)["vocabulary"] = dataset.vocabulary.vocabulary
 	model = model_factory.get_model(args, args.model, logger)

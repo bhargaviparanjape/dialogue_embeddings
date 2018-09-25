@@ -107,6 +107,5 @@ class LabelAccuracy(BidirectionalAccuracy):
 		if self.total_labels == 0:
 			self.label_accuracy = 0
 			return 0
-		self.label_accuracy = float(self.correct)/self.total
-		## unmask and compute microaveraged F1
+		self.label_accuracy = float(self.correct_labels)/self.total_labels
 		return self.label_accuracy
