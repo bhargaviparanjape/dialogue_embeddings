@@ -25,19 +25,20 @@ def get_pretrained_embeddings(args, dataset):
 			for conversation in sub_dataset:
 				conversation_dict = {}
 				conversation_id = conversation.id
+				print(conversation_id)
 				conversation_dict["id"] = conversation_id
 				utterances = [u.tokens for u in conversation.utterances]
 				character_ids = batch_to_ids(utterances)
 				embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024)
 				mask = torch.Tensor(character_ids.shape[0], character_ids.shape[1])
-				for i in range(0, character_ids.shape[0], 2):
-					dict = ee(character_ids[i:i + 2].unsqueeze(0))
-					embeddings[i:i + 2] = dict['elmo_representations'][0]
-					mask[i:i + 2] = dict['mask']
+				for i in range(0, character_ids.shape[0], 10):
+					dict = ee(character_ids[i:i + 10].unsqueeze(0))
+					embeddings[i:i + 10] = dict['elmo_representations'][0]
+					mask[i:i + 10] = dict['mask']
 				if args.lookup == "avg":
 					conversation_embeddings = average_embeddings(embeddings, mask)
 					conversation_dict["embeddings"] = conversation_embeddings
-				output_path.write(json.dumps(conversation_dict))
+				output_path.write(json.dumps(conversation_dict)+"\n")
 
 
 
