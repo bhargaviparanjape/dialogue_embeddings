@@ -1,49 +1,15 @@
 import torch
 import torch.nn as nn
-import torch.autograd as ag
 from embed.models.factory import RegisterModel, variable, FloatTensor, ByteTensor, LongTensor
 from embed.models import factory as model_factory
 import numpy as np
 from torch.nn import functional
 
 
-class MaskedSoftmaxAndLogSoftmax(ag.Function):
-  def __init__(self, dtype = torch.FloatTensor):
-    super(MaskedSoftmaxAndLogSoftmax, self).__init__()
-    self._dtype = dtype
-
-  def forward(self, xs, mask):
-    maxes = torch.max(xs + torch.log(mask), 1, keepdim = True)[0]
-    masked_exp_xs = torch.exp(xs - maxes) * mask
-    normalization_factor = masked_exp_xs.sum(1, keepdim = True)
-    probs = masked_exp_xs / normalization_factor
-    log_probs = (xs - maxes - torch.log(normalization_factor)) * mask
-
-    self.save_for_backward(probs, mask)
-    return probs, log_probs
-
-  def backward(self, grad_probs, grad_log_probs):
-    probs, mask = self.saved_tensors
-
-    num_actions = grad_probs.size()[1]
-    w1 = (probs * grad_probs).unsqueeze(0).unsqueeze(-1)
-    w2 = torch.eye(num_actions).type(self._dtype).unsqueeze(0)
-    if grad_probs.is_cuda:
-      w2 = w2.cuda()
-    w2 = (w2 - probs.unsqueeze(-1))
-
-    grad1 = torch.matmul(w2, w1).squeeze(0).squeeze(-1)
-
-    w1 = grad_log_probs
-    sw1 = (mask * grad_log_probs).sum(1, keepdim = True)
-    grad2 = (w1 * mask - probs * sw1)
-    return grad1 + grad2, None
-
-
-@RegisterModel('dialogue_bow')
-class DialogueBagOfWordClassifier(nn.Module):
+@RegisterModel('dialogue_act_classifier')
+class DialogueActClassifier(nn.Module):
 	def __init__(self, args):
-		super(DialogueBagOfWordClassifier, self).__init__()
+		super(DialogueActClassifier, self).__init__()
 		self.args = args
 
 		self.lookup_layer = model_factory.get_model(args, args.lookup)
@@ -51,13 +17,6 @@ class DialogueBagOfWordClassifier(nn.Module):
 
 		self.next_utterance_scorer = nn.Bilinear(2 * args.encoder_hidden_size, 2 * args.encoder_hidden_size, 1)
 		self.prev_utterance_scorer = nn.Bilinear(2 * args.encoder_hidden_size, 2 * args.encoder_hidden_size, 1)
-
-		self.bow_scorer = nn.Sequential(
-			nn.Linear(2 * args.encoder_hidden_size, 2048),
-			nn.ReLU(),
-			nn.Linear(2048, len(args.vocabulary))
-		)
-		self.masked_softmax = MaskedSoftmaxAndLogSoftmax()
 
 		self.classifier = nn.Sequential(
 			nn.Linear(2 * args.encoder_hidden_size, 100),
@@ -69,7 +28,7 @@ class DialogueBagOfWordClassifier(nn.Module):
 	def forward(self, *input):
 		[embeddings, input_mask_variable, \
 		 sort, unsort, conversation_mask_sorted, lengths_sorted, max_num_utterances_batch, \
-		 max_utterance_length, utterance_word_ids, labels] = input[0]
+		 options_tensor, goldids_next_variable, goldids_prev_variable, labels] = input[0]
 
 		if self.args.embedding != "avg_elmo":
 			lookup = self.lookup_layer(embeddings, input_mask_variable)
@@ -83,26 +42,37 @@ class DialogueBagOfWordClassifier(nn.Module):
 		## get hidden representations
 		encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
 		encoded = encoded[unsort].view(sequence_batch_size * max_num_utterances_batch, -1, encoded.shape[2])
-
-		## dialogue auxiliary task
-		vocabulary_scores = self.bow_scorer(encoded.squeeze(1))
-		batch_token_scores = torch.gather(vocabulary_scores, 1, utterance_word_ids)
-		score_probs, score_log_probs = self.masked_softmax(batch_token_scores, input_mask_variable)
-		loss = (-(score_log_probs*input_mask_variable)).sum()/ input_mask_variable.sum()
-		## for each word sample the top utterances
-		predictions = torch.sort(vocabulary_scores, descending=True)[1][:, :max_utterance_length]
+		## do lookup based on indices
+		options = torch.index_select(encoded.squeeze(1), 0, options_tensor.view(-1))
+		## expand the options K times get
+		encoded_expand = encoded.expand(encoded.shape[0], options_tensor.shape[1], encoded.shape[2]).contiguous()
+		encoded_expand = encoded_expand.view(encoded_expand.shape[0] * options_tensor.shape[1], encoded_expand.shape[2])
+		## MLP
+		next_logits = self.next_utterance_scorer(encoded_expand, options)
+		prev_logits = self.prev_utterance_scorer(encoded_expand, options)
+		next_logits_flat = next_logits.view(encoded.shape[0], options_tensor.shape[1], -1)
+		next_log_probs_flat = functional.log_softmax(next_logits_flat)
+		prev_logits_flat = prev_logits.view(encoded.shape[0], options_tensor.shape[1], -1)
+		prev_log_probs_flat = functional.log_softmax(prev_logits_flat)
+		conversation_mask = conversation_mask_sorted[unsort]
+		losses_flat = -torch.gather(next_log_probs_flat.squeeze(2), dim=1, index=goldids_next_variable.view(-1, 1)) \
+					  + (-torch.gather(prev_log_probs_flat.squeeze(2), dim=1, index=goldids_prev_variable.view(-1, 1)))
+		losses = losses_flat * conversation_mask.view(sequence_batch_size * max_num_utterances_batch, -1)
+		## loss and indices (average next and previous prediction answers)
+		loss = losses.sum() / (2 * conversation_mask.float().sum())
+		next_predictions = torch.sort(next_logits_flat.squeeze(2), descending=True)[1][:, 0]
+		prev_predictions = torch.sort(prev_logits_flat.squeeze(2), descending=True)[1][:, 0]
 
 		label_logits = self.classifier(encoded.squeeze(1))
 		## Not including DA prediction loss as part of the objective
 		labels_predictions = torch.sort(label_logits, descending=True)[1][:, 0]
 
-		return loss, tuple([predictions, labels_predictions])
+		return loss, tuple([next_predictions, prev_predictions, labels_predictions])
 
 	def eval(self, *input):
 		[embeddings, input_mask_variable, \
 		 sort, unsort, conversation_mask_sorted, lengths_sorted, max_num_utterances_batch, \
-		 max_utterance_length, utterance_word_ids, labels] = input[0]
-
+		 options_tensor, goldids_next_variable, goldids_prev_variable, labels] = input[0]
 		if self.args.embedding != "avg_elmo":
 			lookup = self.lookup_layer(embeddings, input_mask_variable)
 		else:
@@ -115,23 +85,29 @@ class DialogueBagOfWordClassifier(nn.Module):
 		## get hidden representations
 		encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
 		encoded = encoded[unsort].view(sequence_batch_size * max_num_utterances_batch, -1, encoded.shape[2])
-
-		## dialogue auxiliary task
-		vocabulary_scores = self.bow_scorer(encoded.squeeze(1))
-		## for each word sample the top utterances
-		predictions = torch.sort(vocabulary_scores, descending=True)[1][:, max_utterance_length]
-
+		## do lookup based on indices
+		options = torch.index_select(encoded.squeeze(1), 0, options_tensor.view(-1))
+		## expand the options K times get
+		encoded_expand = encoded.expand(encoded.shape[0], options_tensor.shape[1], encoded.shape[2]).contiguous()
+		encoded_expand = encoded_expand.view(encoded_expand.shape[0] * options_tensor.shape[1], encoded_expand.shape[2])
+		## MLP
+		next_logits = self.next_utterance_scorer(encoded_expand, options)
+		prev_logits = self.prev_utterance_scorer(encoded_expand, options)
+		next_logits_flat = next_logits.view(encoded.shape[0], options_tensor.shape[1], -1)
+		prev_logits_flat = prev_logits.view(encoded.shape[0], options_tensor.shape[1], -1)
+		next_predictions = torch.sort(next_logits_flat.squeeze(2), descending=True)[1][:, 0]
+		prev_predictions = torch.sort(prev_logits_flat.squeeze(2), descending=True)[1][:, 0]
 
 		## predict dialogue act labels
 		label_logits = self.classifier(encoded.squeeze(1))
 		labels_predictions = torch.sort(label_logits, descending=True)[1][:, 0]
 
-		return tuple([predictions, labels_predictions])
+		return tuple([next_predictions, prev_predictions, labels_predictions])
 
 	def prepare_for_gpu(self, batch, embedding_layer):
 		batch_size = int(len(batch['utterance_list']) / batch['max_num_utterances'])
 		max_num_utterances_batch = batch['max_num_utterances']
-		max_utterance_length = batch['max_utterance_length']
+
 		### Prepare embeddings
 		if self.args.embedding == "elmo":
 			### embedding_layer doesnt recide on cuda if its elmo
@@ -167,20 +143,23 @@ class DialogueBagOfWordClassifier(nn.Module):
 		goldids_prev_variable = LongTensor(batch['prev_utterance_gold'])
 		utterance_labels = LongTensor(batch['label'])
 
-		return batch_size, tuple([batch_ids,
-								  utterance_labels]), input_mask, utterance_embeddings, input_mask_variable, \
+		return batch_size, tuple([goldids_next_variable,
+								  goldids_prev_variable, utterance_labels]), conversation_mask, utterance_embeddings, input_mask_variable, \
 			   sort, unsort, conversation_mask_sorted, lengths_sorted, max_num_utterances_batch, \
-			   max_utterance_length, batch_ids, utterance_labels \
+			   options_tensor, goldids_next_variable, goldids_prev_variable, utterance_labels
 
 	def prepare_for_cpu(self, loss, *input):
-		word_indices = input[0][0]
-		label_indices = input[0][1]
+		next_indices = input[0][0]
+		prev_indices = input[0][1]
+		label_indices = input[0][2]
 		if self.args.use_cuda:
-			word_indices = word_indices.data.cpu()
+			next_indices = next_indices.data.cpu()
+			prev_indices = prev_indices.data.cpu()
 			label_indices = label_indices.data.cpu()
 			loss = loss.data.cpu()
 		else:
-			word_indices = word_indices.data
+			next_indices = next_indices.data
+			prev_indices = prev_indices.data
 			label_indices = label_indices.data
 			loss = loss.data
-		return loss, word_indices, label_indices
+		return loss, next_indices, prev_indices, label_indices

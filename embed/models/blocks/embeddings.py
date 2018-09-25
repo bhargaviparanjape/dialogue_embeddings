@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import numpy as np
+from embed.models.factory import RegisterModel, variable, FloatTensor, ByteTensor, LongTensor
 import json
 from embed.models.factory import RegisterModel
 from allennlp.modules.elmo import Elmo, batch_to_ids
@@ -27,10 +28,10 @@ class ELMoEmbedding():
 		#for u in character_ids.data.numpy():
 		embeddings = torch.zeros(character_ids.shape[0], character_ids.shape[1], 1024)
 		mask= torch.zeros(character_ids.shape[0], character_ids.shape[1])
-		for i in range(0, character_ids.shape[0], 2):
-			dict = self.ee(character_ids[i:i+2].unsqueeze(0))
-			embeddings[i:i+2] = dict['elmo_representations'][0]
-			mask[i:i+2] = dict['mask']
+		for i in range(0, character_ids.shape[0], 10):
+			dict = self.ee(character_ids[i:i+10].unsqueeze(0))
+			embeddings[i:i+10] = dict['elmo_representations'][0]
+			mask[i:i+10] = dict['mask']
 
 		return embeddings, mask
 
@@ -40,7 +41,7 @@ class AverageELMoEmbedding():
 		self.embedding_path = args.embedding_path
 		self.embed_size = args.embed_size
 		self.args = args
-		self.embeddings = self.load_embeddings()
+		self.load_embeddings()
 
 	def load_embeddings(self):
 		self.embeddings = {}
@@ -50,9 +51,14 @@ class AverageELMoEmbedding():
 				self.embeddings[dict["id"]] = dict["embeddings"]
 
 
-	def lookup(self, IDS):
-		pass
-		## MAX CONVERSATION LENGTH
+	def lookup(self, transcript_id_list, max_batch_length):
+		batch_embeddings = []
+		for x, id in enumerate(transcript_id_list):
+			embeddings = self.embeddings[id]
+			batch_embeddings += embeddings
+			batch_embeddings += [np.random.rand(self.args.embed_size).tolist() for i in range(max_batch_length - len(embeddings))]
+		batch_embedding_tensor = FloatTensor(batch_embeddings)
+		return batch_embedding_tensor
 
 
 
