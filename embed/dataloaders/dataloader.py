@@ -35,18 +35,19 @@ class ConversationBatcher(AbstractDataLoader):
 			next_gold_ids = []
 			prev_gold_ids = []
 
-			## next utterance vocabulary ids for next sequence prediction
+			## utterance vocabulary ids for next/previous utterance reconstruction (bow model and decoding)
 			next_utterance_ids_list = []
 			previous_utterance_ids_list = []
 			next_utterance_bow_list = []
 			prev_utterance_bow_list= []
 
-			## category classification
+			## category classification labels
 			labels = []
 
 			conversation_mask = []
 			utterance_list = []
 			utterance_ids_list = []
+			utterance_word_ids_list = []
 			conversation_lengths = []
 			conversation_ids = []
 
@@ -63,7 +64,8 @@ class ConversationBatcher(AbstractDataLoader):
 				length = len(conversation.utterances)
 				for u_idx, u in enumerate(conversation.utterances):
 					utterance_list.append(u.tokens)
-					utterance_ids_list.append(pad_seq(vocabulary.get_indices(u.tokens), max_utterance_length))
+					utterance_word_ids_list.append(pad_seq(vocabulary.get_indices(u.tokens), max_utterance_length))
+					utterance_ids_list.append(u.id)
 					labels.append(u.label)
 					## randomly sample K items in conversation
 					utterance_samples = random.sample(range(length), self.K)
@@ -110,15 +112,18 @@ class ConversationBatcher(AbstractDataLoader):
 				## apend dummy utterances
 				for i in range(max_num_utterances - length):
 					utterance_list.append([])
-					utterance_ids_list.append(pad_seq([], max_utterance_length))
+					utterance_word_ids_list.append(pad_seq([], max_utterance_length))
+					utterance_ids_list.append(-1)
 					utterance_options_list.append([length + i + c_idx*max_num_utterances]*self.K)
 					next_gold_ids.append(0)
 					prev_gold_ids.append(0)
+					labels.append(0)
 
 
 			batch['utterance_list'] = utterance_list
-			batch['utterance_ids'] = np.array(utterance_ids_list)
-			batch['input_mask'] = (1*(batch['utterance_ids']!= 0))
+			batch['utterance_word_ids'] = np.array(utterance_word_ids_list)
+			batch['utterance_ids_list'] = np.array(utterance_ids_list)
+			batch['input_mask'] = (1*(batch['utterance_word_ids']!= 0))
 
 			batch['utterance_options_list'] = utterance_options_list
 			batch['next_utterance_gold'] = next_gold_ids
@@ -131,6 +136,7 @@ class ConversationBatcher(AbstractDataLoader):
 			batch['conversation_ids'] = conversation_ids
 			batch['conversation_mask'] = conversation_mask
 			batch['max_num_utterances'] = max_num_utterances
+			batch['max_utterance_length'] = max_utterance_length
 
 			return batch
 
