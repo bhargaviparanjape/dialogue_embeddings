@@ -144,7 +144,8 @@ class DialogueBagOfWordClassifier(nn.Module):
 
 		elif self.args.embedding == "avg_elmo":
 			conversation_ids = batch["conversation_ids"]
-			embedding_layer.lookup(conversation_ids, max_num_utterances_batch)
+			utterance_embeddings = embedding_layer.lookup(conversation_ids, max_num_utterances_batch)
+			input_mask = FloatTensor(batch['input_mask'])
 
 		if self.args.use_cuda:
 			utterance_embeddings = utterance_embeddings.cuda()

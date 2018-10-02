@@ -90,8 +90,8 @@ class DialogueActClassifier(nn.Module):
 		label_losses = label_losses_flat * conversation_mask.view(sequence_batch_size * max_num_utterances_batch, -1)
 		label_loss = label_losses.sum()/conversation_mask.float().sum()
 		labels_predictions = torch.sort(label_logits, descending=True)[1][:, 0]
-
-		return loss, tuple([next_predictions, prev_predictions, labels_predictions])
+		combined_loss = (loss + label_loss)/2
+		return combined_loss, tuple([next_predictions, prev_predictions, labels_predictions])
 
 	def eval(self, *input):
 		[embeddings, input_mask_variable, \
@@ -153,7 +153,8 @@ class DialogueActClassifier(nn.Module):
 
 		elif self.args.embedding == "avg_elmo":
 			conversation_ids = batch["conversation_ids"]
-			embedding_layer.lookup(conversation_ids, max_num_utterances_batch)
+			utterance_embeddings = embedding_layer.lookup(conversation_ids, max_num_utterances_batch)
+			input_mask = FloatTensor(batch["input_mask"])
 
 		if self.args.use_cuda:
 			utterance_embeddings = utterance_embeddings.cuda()

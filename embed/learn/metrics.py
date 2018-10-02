@@ -32,7 +32,7 @@ class Accuracy():
 			self.value = 0
 			return 0
 		self.value = float(self.correct)/self.total
-		return float(self.correct)/self.total
+		return self.value
 
 	def update_metric(self, batch_size, *input):
 		mask = input[2].view(-1,1).squeeze(1)

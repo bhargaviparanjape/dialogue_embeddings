@@ -37,7 +37,7 @@ def parse_arguments():
 	parser.add_argument("--l_rate", type=float, default=0.0001)
 	parser.add_argument("--clip_threshold", type=float, default=10)
 	parser.add_argument("--eval_interval", type=int, default=20)
-	parser.add_argument("--patience", type=int, default=20)
+	parser.add_argument("--patience", type=int, default=30)
 
 	args = parser.parse_args()
 
@@ -59,7 +59,7 @@ def get_parameters(args):
 
 	### MODEL SPECIFIC ARGUMENTS
 	### TO	a config file
-	vars(args)['K'] = 4
+	vars(args)['K'] = 10
 
 	## Objective : Classification ##
 	vars(args)["output_size"] = len(DAMSL_TAGSET)

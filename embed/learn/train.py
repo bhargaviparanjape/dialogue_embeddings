@@ -59,14 +59,17 @@ def train(args, dataset, model, logger):
 			optimizer.zero_grad()
 			if (iteration + 1) % eval_interval == 0:
 				logger.info("epoch: {0} iteration: {1} train loss: {2}".format(epoch + 1, iteration + 1, learning_state.get_loss()))
-				dev_accuracy = eval(args, validation_batches, model, embedding_layer).compute_metric()
-
+				dev_metric = eval(args, validation_batches, model, embedding_layer)
+				dev_accuracy = dev_metric.compute_metric()
+				dev_acc_utterance =  dev_metric.value
 				train_accuracy = train_metric.compute_metric()
-				learning_state.validation_history.append(dev_accuracy)
-				logger.info("epoch: {0} iteration: {1} dev accuracy: {2}".format(epoch + 1, iteration + 1, dev_accuracy))
+				train_acc_utterance = train_metric.value
+				combined_accuracy = (dev_acc_utterance + dev_accuracy)/2
+				learning_state.validation_history.append(combined_accuracy)
+				logger.info("epoch: {0} iteration: {1} dev accuracy: {2} dev_acc_utterance {3}".format(epoch + 1, iteration + 1, dev_accuracy, dev_acc_utterance))
 				logger.info("epoch: {0} iteration: {1} train accuracy: {2}".format(epoch + 1, iteration + 1, train_accuracy))
 
-				if dev_accuracy >= max(learning_state.validation_history):
+				if combined_accuracy >= max(learning_state.validation_history):
 					print("Saving best model seen so far epoch {0}, itr number {1}".format(epoch + 1, iteration + 1))
 					torch.save(model, args.model_path)
 					print("Best on Validation: Accuracy:{0}".format(dev_accuracy))
