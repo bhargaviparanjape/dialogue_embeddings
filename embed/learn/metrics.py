@@ -1,3 +1,5 @@
+import numpy as np
+
 NO_METRIC_ERR = "Model {} not in METRIC_REGISTRY! Available metrics are {}"
 METRIC_REGISTRY = {}
 
@@ -26,6 +28,7 @@ class Accuracy():
 		self.args = args
 		self.correct = 0
 		self.total = 0
+		self.multitask = False
 
 	def compute_metric(self):
 		if self.total == 0:
@@ -37,8 +40,8 @@ class Accuracy():
 	def update_metric(self, batch_size, *input):
 		mask = input[2].view(-1,1).squeeze(1)
 		self.total += mask.sum().data.numpy()
-		predicted = input[0]*mask
-		correct = input[1]*mask
+		predicted = input[0][0]*mask
+		correct = input[1][0]*mask
 		self.correct += ((predicted == correct).long()*mask).sum().numpy()
 
 	def reset(self):
@@ -67,13 +70,19 @@ class BagOfWordMetric():
 		self.args = args
 		self.correct = 0
 		self.total = 0
+		self.multitask = False
 
 	def update_metric(self, batch_size, *input):
 		mask = input[2]
-		predicted = input[0]
-		gold_ids = input[1]
-		self.correct += ((predicted[0] == gold_ids[0]).float() * mask).sum().numpy()
-
+		## mask both input[0][0] and inpit[1][0] and then check if the sets have intersection
+		masked_predicted = input[0][0]*mask.long()
+		masked_gold = input[1][0]*mask.long()
+		for i in range(input[0][0].shape[0]):
+			predicted_set = set([j for j in masked_predicted.numpy()[i].tolist() if j != 0])
+			gold_set =  set([j for j in masked_gold.numpy()[i].tolist() if j != 0])
+			self.correct += len(predicted_set & gold_set)
+		## label accuracy
+		self.total += mask.sum().data.numpy()
 
 	def compute_metric(self):
 		## how many match exactly / how many total
@@ -93,6 +102,7 @@ class LabelAccuracy(BidirectionalAccuracy):
 		super(LabelAccuracy, self).__init__(args)
 		self.correct_labels = 0
 		self.total_labels = 0
+		self.multitask = True
 
 	def update_metric(self, batch_size, *input):
 		super(LabelAccuracy, self).update_metric(batch_size, *input)

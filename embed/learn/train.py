@@ -36,6 +36,18 @@ def generate_embeddings(args, dataset, model, logger):
 			embeddings = model.dump_embeddings(input, batch_size)
 	model.train(True)
 
+def load_dialogue_encoder(args, model):
+	## load a pretrained model from given path and assign the specific layer to the current model
+	load_path = args.dialogue_embedder_path
+	trained_model = torch.load(load_path)
+	pretrained_dict = trained_model.state_dict()
+	model_dict = model.state_dict()
+
+	pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+	model_dict.update(pretrained_dict)
+	model.load_state_dict(model_dict)
+	return model
+
 def train(args, dataset, model, logger):
 
 	train_batches, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
@@ -59,14 +71,22 @@ def train(args, dataset, model, logger):
 			optimizer.zero_grad()
 			if (iteration + 1) % eval_interval == 0:
 				logger.info("epoch: {0} iteration: {1} train loss: {2}".format(epoch + 1, iteration + 1, learning_state.get_loss()))
+
 				dev_metric = eval(args, validation_batches, model, embedding_layer)
 				dev_accuracy = dev_metric.compute_metric()
-				dev_acc_utterance =  dev_metric.value
 				train_accuracy = train_metric.compute_metric()
-				train_acc_utterance = train_metric.value
-				combined_accuracy = (dev_acc_utterance + dev_accuracy)/2
+
+				if not train_metric.multitask:
+					combined_accuracy = dev_accuracy
+					dev_acc_aux = train_acc_aux = 0
+				else:
+					## this is specifically for multitask framework
+					dev_acc_aux = dev_metric.value
+					train_acc_aux = train_metric.value
+					combined_accuracy = (dev_acc_aux + dev_accuracy)/2
+
 				learning_state.validation_history.append(combined_accuracy)
-				logger.info("epoch: {0} iteration: {1} dev accuracy: {2} dev_acc_utterance {3}".format(epoch + 1, iteration + 1, dev_accuracy, dev_acc_utterance))
+				logger.info("epoch: {0} iteration: {1} dev accuracy: {2} dev_acc_utterance {3}".format(epoch + 1, iteration + 1, dev_accuracy, dev_acc_aux))
 				logger.info("epoch: {0} iteration: {1} train accuracy: {2}".format(epoch + 1, iteration + 1, train_accuracy))
 
 				if combined_accuracy >= max(learning_state.validation_history):

@@ -11,7 +11,9 @@ def parse_arguments():
 	parser.add_argument("--run_mode", type=str, default="train")
 	parser.add_argument("--seed", type=int, default=0)
 	parser.add_argument("--truncate_dataset", action="store_true", default=False)
+	parser.add_argument("--load_pretrained_model", action="store_true", default=False)
 	parser.add_argument("--model_path", type=str, default=None)
+	parser.add_argument("--dialogue_embedder_path",type=str,default=None)
 	parser.add_argument("--embedding_path", type=str, default=None)
 	parser.add_argument("--output_path", type=str, default=None)
 	parser.add_argument("--logging_path", type=str, default=None)
@@ -59,7 +61,7 @@ def get_parameters(args):
 
 	### MODEL SPECIFIC ARGUMENTS
 	### TO	a config file
-	vars(args)['K'] = 10
+	vars(args)['K'] = 4
 
 	## Objective : Classification ##
 	vars(args)["output_size"] = len(DAMSL_TAGSET)

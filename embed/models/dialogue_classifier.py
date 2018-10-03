@@ -4,6 +4,7 @@ from embed.models.factory import RegisterModel, variable, FloatTensor, ByteTenso
 from embed.models import factory as model_factory
 import numpy as np
 from torch.nn import functional
+from embed.models.dialogue_embedder import DialogueEmbedder
 import pdb
 
 
@@ -13,8 +14,7 @@ class DialogueClassifier(nn.Module):
 		super(DialogueClassifier, self).__init__()
 		self.args = args
 
-		self.lookup_layer = model_factory.get_model(args, args.lookup)
-		self.encoding_layer = model_factory.get_model(args, args.encoding)
+		self.dialogue_embedder = DialogueEmbedder(args)
 
 		if args.encoding == "bilstm":
 			hidden_size = 2 * args.encoder_hidden_size
@@ -25,28 +25,13 @@ class DialogueClassifier(nn.Module):
 
 	def forward(self, *input):
 		[embeddings, input_mask_variable, \
-		 sort, unsort, conversation_mask_sorted, lengths_sorted, max_num_utterances_batch, \
+		 conversation_mask, max_num_utterances_batch, \
 		 options_tensor, goldids_next_variable, goldids_prev_variable, labels] = input[0]
 
-		if self.args.embedding != "avg_elmo":
-			lookup = self.lookup_layer(embeddings, input_mask_variable)
-		else:
-			lookup = embeddings
-		## reshape based on max_input_length in batch dimension
-		sequence_batch_size = int(lookup.shape[0] / max_num_utterances_batch)
-		reshaped_lookup = lookup.view(sequence_batch_size, max_num_utterances_batch, lookup.shape[1])
-		## sort utterances then apply encoding layer
-		sorted_lookup = reshaped_lookup[sort]
+		encoded = self.dialogue_embedder(input[0][:4])
 
-		## get hidden representations
-		if self.args.encoding == "bilstm":
-			encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
-		else:
-			encoded = self.encoding_layer(sorted_lookup, conversation_mask_sorted)
-			encoded = torch.cat((encoded[0, :], encoded[1, :]), 2)
+		sequence_batch_size = int(embeddings.shape[0] / max_num_utterances_batch)
 
-
-		encoded = encoded[unsort].view(sequence_batch_size * max_num_utterances_batch, -1, encoded.shape[2])
 		## do lookup based on indices
 		options = torch.index_select(encoded.squeeze(1), 0, options_tensor.view(-1))
 		## expand the options K times get
@@ -59,7 +44,6 @@ class DialogueClassifier(nn.Module):
 		next_log_probs_flat = functional.log_softmax(next_logits_flat)
 		prev_logits_flat = prev_logits.view(encoded.shape[0], options_tensor.shape[1], -1)
 		prev_log_probs_flat = functional.log_softmax(prev_logits_flat)
-		conversation_mask = conversation_mask_sorted[unsort]
 		losses_flat = -torch.gather(next_log_probs_flat.squeeze(2), dim=1, index=goldids_next_variable.view(-1, 1)) \
 			+ (-torch.gather(prev_log_probs_flat.squeeze(2), dim=1, index=goldids_prev_variable.view(-1, 1)))
 		losses = losses_flat * conversation_mask.view(sequence_batch_size*max_num_utterances_batch, -1)
@@ -98,25 +82,11 @@ class DialogueClassifier(nn.Module):
 		[embeddings, input_mask_variable, \
 		 sort, unsort, conversation_mask_sorted, lengths_sorted, max_num_utterances_batch, \
 		 options_tensor, goldids_next_variable, goldids_prev_variable, labels] = input[0]
-		if self.args.embedding != "avg_elmo":
-			lookup = self.lookup_layer(embeddings, input_mask_variable)
-		else:
-			lookup = embeddings
-		## reshape based on max_input_length in batch dimension
-		sequence_batch_size = int(lookup.shape[0] / max_num_utterances_batch)
-		reshaped_lookup = lookup.view(sequence_batch_size, max_num_utterances_batch, lookup.shape[1])
-		## sort utterances then apply encoding layer
-		sorted_lookup = reshaped_lookup[sort]
 
+		encoded = self.dialogue_embedder(input[0][:4])
 
-		## get hidden representations
-		if self.args.encoding == "bilstm":
-			encoded, _ = self.encoding_layer(sorted_lookup, lengths_sorted)
-		else:
-			encoded = self.encoding_layer(sorted_lookup, conversation_mask_sorted)
-			encoded = torch.cat((encoded[0, :], encoded[1, :]), 2)
+		sequence_batch_size = int(embeddings.shape[0] / max_num_utterances_batch)
 
-		encoded = encoded[unsort].view(sequence_batch_size * max_num_utterances_batch, -1, encoded.shape[2])
 		## do lookup based on indices
 		options = torch.index_select(encoded.squeeze(1), 0, options_tensor.view(-1))
 		## expand the options K times get
@@ -174,8 +144,8 @@ class DialogueClassifier(nn.Module):
 		utterance_labels = LongTensor(batch['label'])
 
 		return batch_size, tuple([goldids_next_variable, goldids_prev_variable]), conversation_mask, utterance_embeddings, input_mask_variable, \
-			   sort, unsort, conversation_mask_sorted, lengths_sorted, max_num_utterances_batch, \
-			   options_tensor, goldids_next_variable, goldids_prev_variable, utterance_labels
+			variable(conversation_mask.float()), max_num_utterances_batch,\
+			options_tensor, goldids_next_variable, goldids_prev_variable, utterance_labels
 
 	def prepare_for_cpu(self, loss , *input):
 		next_indices = input[0][0]

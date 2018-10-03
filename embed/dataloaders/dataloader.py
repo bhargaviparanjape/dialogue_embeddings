@@ -85,6 +85,7 @@ class ConversationBatcher(AbstractDataLoader):
 						num_samples = self.K - 2
 					next_utterance_ids = vocabulary.get_indices(conversation.utterances[next_id].tokens)
 					previous_utterance_ids = vocabulary.get_indices(conversation.utterances[prev_id].tokens)
+					current_utterance_ids = vocabulary.get_indices(conversation.utterances[u_idx].tokens)
 					prev_utterance_bow = list(set(previous_utterance_ids))
 					next_utterance_bow = list(set(next_utterance_ids))
 
@@ -105,6 +106,7 @@ class ConversationBatcher(AbstractDataLoader):
 					previous_utterance_ids_list.append(previous_utterance_ids)
 					next_utterance_bow_list.append(next_utterance_bow)
 					prev_utterance_bow_list.append(prev_utterance_bow)
+
 
 				conversation_lengths.append(length)
 				conversation_ids.append(conversation.id)
