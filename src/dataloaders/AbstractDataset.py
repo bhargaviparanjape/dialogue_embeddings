@@ -13,6 +13,7 @@ class AbstractDataset(data.Dataset):
         self.train_dataset = []
         self.test_dataset = []
         self.valid_dataset = []
+        self.label_set_size = 0
 
     def __len__(self):
         return len(self.dataset)
@@ -26,6 +27,7 @@ class AbstractDataset(data.Dataset):
         aggregated_dataset = AbstractDataset()
 
         aggregated_dataset.total_length = self.total_length + other.total_length
+        aggregated_dataset.label_set_size = max(self.label_set_size, other.label_set_size)
         aggregated_dataset.vocabulary = self.vocabulary + other.vocabulary
         aggregated_dataset.train_dataset = self.train_dataset + other.train_dataset
         aggregated_dataset.test_dataset = self.test_dataset + other.test_dataset

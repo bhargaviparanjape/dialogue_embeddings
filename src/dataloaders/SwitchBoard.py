@@ -38,6 +38,7 @@ class SwitchBoard(AbstractDataset):
 		corpus = swda.CorpusReader(dataset_path)
 		self.total_length = 0
 		self.vocabulary = Vocabulary()
+		self.label_set_size = len(DAMSL_TAGSET)
 
 		dataset = []
 		for transcript in corpus.iter_transcripts(display_progress=True):

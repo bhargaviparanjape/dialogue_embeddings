@@ -17,6 +17,7 @@ from src.learn import train
 logger = logging.getLogger()
 
 def init_model(args, dataset):
+	data_factroy.set_dataset_arguments(args, dataset)
 	model = model_factory.get_model(args)
 	model.set_vocabulary(dataset.vocabulary.vocabulary)
 	return model

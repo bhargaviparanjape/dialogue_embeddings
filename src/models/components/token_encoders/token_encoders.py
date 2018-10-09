@@ -49,7 +49,7 @@ class AverageELMoEmbedding():
 		self.args = args
 		self.load_embeddings()
 
-	def load_embeddings(self):
+	def load_embeddings(self, vocabulary):
 		self.embeddings = {}
 		with open(self.pretrained_embedding_path) as fin:
 			for line in fin:
