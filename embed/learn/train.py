@@ -84,6 +84,8 @@ def train(args, dataset, model, logger):
 					dev_acc_aux = dev_metric.value
 					train_acc_aux = train_metric.value
 					combined_accuracy = (dev_acc_aux + dev_accuracy)/2
+				if args.metric == "accuracy":
+					logger.info("F1: {0}".format(dev_metric.compute_f1()))
 
 				learning_state.validation_history.append(combined_accuracy)
 				logger.info("epoch: {0} iteration: {1} dev accuracy: {2} dev_acc_utterance {3}".format(epoch + 1, iteration + 1, dev_accuracy, dev_acc_aux))

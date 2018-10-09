@@ -80,7 +80,7 @@ class DialogueClassifier(nn.Module):
 
 	def eval(self, *input):
 		[embeddings, input_mask_variable, \
-		 sort, unsort, conversation_mask_sorted, lengths_sorted, max_num_utterances_batch, \
+		 conversation_mask, max_num_utterances_batch, \
 		 options_tensor, goldids_next_variable, goldids_prev_variable, labels] = input[0]
 
 		encoded = self.dialogue_embedder(input[0][:4])

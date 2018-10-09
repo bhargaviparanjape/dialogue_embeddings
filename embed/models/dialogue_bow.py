@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.autograd as ag
 from embed.models.factory import RegisterModel, variable, FloatTensor, ByteTensor, LongTensor
 from embed.models import factory as model_factory
@@ -34,15 +35,19 @@ class DialogueBagOfWordClassifier(nn.Module):
 			nn.Linear(100, self.args.output_size))
 		self.classifier_loss = torch.nn.CrossEntropyLoss()
 
-	def masked_softmax(self, input, mask):
+	def masked_softmax(self, input, target, mask):
+		'''
 		maxes = torch.max(input + torch.log(mask), 1, keepdim=True)[0]
 		masked_exp_xs = torch.exp(input - maxes) * mask
-		masked_exp_xs[masked_exp_xs != masked_exp_xs] = 0
+		#masked_exp_xs[masked_exp_xs != masked_exp_xs] = 0
 		normalization_factor = masked_exp_xs.sum(1, keepdim=True)
 		# probs = masked_exp_xs / normalization_factor
 		score_log_probs = (input - maxes - torch.log(normalization_factor)) * mask
-		score_log_probs[score_log_probs != score_log_probs] = 0
+		#score_log_probs[score_log_probs != score_log_probs] = 0
 		loss = (-(score_log_probs * mask)).sum() / mask.sum()
+		'''
+		negative_log_prob = -(F.log_softmax(input))
+		loss = (torch.gather(negative_log_prob, 1, target)*mask).sum()/ mask.sum()
 		return loss
 
 	def forward(self, *input):
@@ -56,11 +61,11 @@ class DialogueBagOfWordClassifier(nn.Module):
 
 		## dialogue auxiliary task
 		vocabulary_scores = self.bow_scorer(encoded.squeeze(1))
-		batch_token_scores = torch.gather(vocabulary_scores, 1, utterance_word_ids)
+		# batch_token_scores = torch.gather(vocabulary_scores, 1, utterance_word_ids)
 
 		# score_probs, score_log_probs = self.masked_softmax(batch_token_scores, input_mask_variable)
 
-		loss = self.masked_softmax(batch_token_scores, input_mask_variable)
+		loss = self.masked_softmax(vocabulary_scores, utterance_word_ids, input_mask_variable)
 
 		## for each word sample the top utterances
 		predictions = torch.sort(vocabulary_scores, descending=True)[1][:, :max_utterance_length]
@@ -72,7 +77,9 @@ class DialogueBagOfWordClassifier(nn.Module):
 		label_loss = label_losses.sum() / conversation_mask.float().sum()
 		labels_predictions = torch.sort(label_logits, descending=True)[1][:, 0]
 
-		return loss, tuple([predictions, labels_predictions])
+		combined_loss = (0.7*loss + 0.3*label_loss)
+
+		return combined_loss, tuple([predictions, labels_predictions])
 
 	def eval(self, *input):
 		[embeddings, input_mask_variable, \
@@ -112,6 +119,7 @@ class DialogueBagOfWordClassifier(nn.Module):
 			input_mask = FloatTensor(batch['input_mask'])
 
 		elif self.args.embedding == "avg_elmo":
+			batch_ids = LongTensor(batch["utterance_word_ids"])
 			conversation_ids = batch["conversation_ids"]
 			utterance_embeddings = embedding_layer.lookup(conversation_ids, max_num_utterances_batch)
 			input_mask = FloatTensor(batch['input_mask'])

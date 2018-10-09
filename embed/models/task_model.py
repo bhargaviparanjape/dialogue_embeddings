@@ -75,6 +75,7 @@ class DAClassififier(nn.Module):
 			input_mask = FloatTensor(batch['input_mask'])
 
 		elif self.args.embedding == "avg_elmo":
+			batch_ids = LongTensor(batch["utterance_word_ids"])
 			conversation_ids = batch["conversation_ids"]
 			utterance_embeddings = embedding_layer.lookup(conversation_ids, max_num_utterances_batch)
 			input_mask = FloatTensor(batch["input_mask"])
