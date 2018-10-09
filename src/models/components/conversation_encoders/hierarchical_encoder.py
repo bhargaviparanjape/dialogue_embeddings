@@ -19,14 +19,15 @@ class StackedBRNN(nn.Module):
 	and concat the hidden states between layers. (i.e. the output hidden size
 	for each sequence input is num_layers * hidden_size).
 	"""
-	def __init__(self, args):
+	def __init__(self, args, **kwargs):
 		super(StackedBRNN, self).__init__()
+		# Always pad input
 		self.padding = True
 		self.dropout_output = False
 		self.dropout_rate = args.dropout
-		self.input_size = args.encoder_input_size
-		self.hidden_size = args.encoder_hidden_size
-		self.num_layers = args.encoder_num_layers
+		self.input_size = args.embed_size
+		self.hidden_size = args.hidden_size
+		self.num_layers = args.num_layers
 		self.concat_layers = True
 		self.rnns = nn.ModuleList()
 		for i in range(self.num_layers):

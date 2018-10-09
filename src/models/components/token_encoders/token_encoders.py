@@ -15,7 +15,7 @@ from src.utils.utility_functions import variable, FloatTensor, ByteTensor, LongT
 
 @RegisterModel('elmo')
 class ELMoEmbedding():
-	def __init__(self, args):
+	def __init__(self, args, **kwargs):
 		options_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json"
 		weight_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
 		self.args = args
@@ -43,7 +43,7 @@ class ELMoEmbedding():
 
 @RegisterModel('avg_elmo')
 class AverageELMoEmbedding():
-	def __init__(self, args):
+	def __init__(self, args, **kwargs):
 		self.pretrained_embedding_path = args.pretrained_embedding_path
 		self.embed_size = args.embed_size
 		self.args = args
@@ -73,7 +73,7 @@ class AverageELMoEmbedding():
 
 @RegisterModel('glove')
 class GloveEmbeddings():
-	def __init__(self, args):
+	def __init__(self, args, **kwargs):
 		self.pretrained_embedding_path = args.pretrained_embedding_path
 		self.embed_size = args.embed_size
 		self.args = args
@@ -83,14 +83,14 @@ class GloveEmbeddings():
 		word_to_id = vocabulary
 		self.vocabulary = vocabulary
 		self.embeddings = []
-		print("Loading pretrained embeddings from {0}".format(self.embedding_path))
+		print("Loading pretrained embeddings from {0}".format(self.pretrained_embedding_path))
 		for _ in range(len(word_to_id)):
 			self.embeddings.append(np.random.uniform(-math.sqrt(3.0 / self.embed_size),
 													 math.sqrt(3.0 / self.embed_size), size=self.embed_size))
 
 		print("length of dict: {0}".format(len(word_to_id)))
 		pretrain_word_emb = {}
-		if self.embedding_path is not None:
+		if self.pretrained_embedding_path is not None:
 			for line in codecs.open(self.embedding_path, "r", "utf-8", errors='replace'):
 				items = line.strip().split()
 				if len(items) == self.embed_size + 1:

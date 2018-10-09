@@ -2,6 +2,7 @@ import torch
 import torch.optim as optim
 import torch
 from torch.autograd import Variable
+import numpy as np
 import time
 
 use_cuda = torch.cuda.is_available()
@@ -50,12 +51,28 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
+class AverageCounter(object):
+	def __init__(self):
+		self.reset()
 
-class MultiTaskAverageMeter(object):
+	def reset(self):
+		self.val = 0
+		self.avg = 0
+		self.sum = 0
+		self.count = 0
+
+	def update(self, val, total):
+		self.val = val
+		self.sum += val
+		self.count += total
+		self.avg = self.sum / self.count
+
+
+class MultiTaskAverageCounter(object):
 	def __init__(self, named_metrics):
 		self.metrics = []
 		for metric in named_metrics:
-			d = {"name":metric , "metric":AverageMeter()}
+			d = {"name":metric , "metric":AverageCounter()}
 			self.metrics.append(d)
 		self.reset()
 
@@ -65,13 +82,20 @@ class MultiTaskAverageMeter(object):
 
 	def update(self, update_values):
 		for idx, item in enumerate(self.metrics):
-			item["metric"].update(update_values[idx][0], update_values[idx][1])
+			item["metric"].update(update_values[item["name"]][0], update_values[item["name"]][1])
 
 	def print_values(self):
 		print_str = " "
 		for idx, item in enumerate(self.metrics):
-			print_str += item["name"] + ": " + "%.4f".format(item["metric"].avg) + " ;"
+			print_str += item["name"] + ": " + "%.4f" % (item["metric"].avg) + " ;"
 		return print_str
+
+	def average(self):
+		metric_values  = []
+		for idx, item in enumerate(self.metrics):
+			metric_values.append(item["metric"].avg)
+		return np.mean(metric_values)
+
 
 class Timer(object):
     """Computes elapsed time."""

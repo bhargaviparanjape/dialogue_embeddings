@@ -9,7 +9,7 @@ from src.models.factory import RegisterModel
 
 @RegisterModel('avg_pooling')
 class AveragePool(nn.Module):
-	def __init__(self, args):
+	def __init__(self, args, **kwargs):
 		super(AveragePool, self).__init__()
 		# self.input_size  = args.lookup_input_size
 		# self.hidden_size = args.lookup_hidden_size
@@ -28,7 +28,7 @@ class AveragePool(nn.Module):
 
 @RegisterModel('avg')
 class Average(nn.Module):
-	def __init__(self, args):
+	def __init__(self, args, **kwargs):
 		super(Average, self).__init__()
 		# self.input_size  = args.lookup_input_size
 		# self.hidden_size = args.lookup_hidden_size

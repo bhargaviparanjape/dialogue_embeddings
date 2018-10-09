@@ -12,11 +12,14 @@ from src.utils.utility_functions import variable, FloatTensor, ByteTensor, LongT
 
 @RegisterModel('bilstm')
 class BiLSTMEncoder(nn.Module):
-	def __init__(self, args):
+	def __init__(self, args, **kwargs):
 		super(BiLSTMEncoder, self).__init__()
-		self.input_size = args.encoder_input_size
-		self.hidden_size = args.encoder_hidden_size
-		self.num_layers = args.encoder_num_layers
+		self.input_size = kwargs["input_size"]
+		self.hidden_size = kwargs["hidden_size"]
+		self.num_layers = kwargs["num_layers"]
+		# self.input_size = args.embed_size
+		# self.hidden_size = args.hidden_size
+		# self.num_layers = args.num_layers
 		self.lstm = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size, num_layers=self.num_layers,
 							batch_first=True, dropout=args.dropout, bidirectional=True)
 
@@ -39,10 +42,11 @@ class BiLSTMEncoder(nn.Module):
 		## hidden and cell are still sorted ordered
 		return outputs_unpacked, hidden
 
-	@staticmethod
-	def add_args(parser):
-		model_parameters = parser.add_argument_group("BiLSTM Parameters")
-		model_parameters.add_argument("--hidden-size", type=int)
+	# @staticmethod
+	# def add_args(parser):
+	# 	model_parameters = parser.add_argument_group("BiLSTM Parameters")
+	# 	model_parameters.add_argument("--hidden-size", type=int)
+	# 	model_parameters.add_argument("--num-layers", type=int)
 
 @RegisterModel('lstmdecoder')
 class LSTMDecoder(nn.Module):

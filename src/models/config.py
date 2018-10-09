@@ -9,9 +9,9 @@ def add_args(parser):
 	model.add_argument("--model", type=str, default="dialogue_classifier")
 
 	model.add_argument("--token-encoder", type=str, default="glove")
-	model.add_argument("--fixed-token-encoder", action = "store_true", default=True)
+	model.add_argument("--fixed-token-encoder", action = "store_false", default=True)
 	model.add_argument("--utterance-encoder", type=str, default="avg")
-	model.add_argument("--fixed-utterance-encoder", action="store_true", default=True)
+	model.add_argument("--fixed-utterance-encoder", action="store_false", default=True)
 	model.add_argument("--conversation-encoder", type=str, default="bilstm")
 	model.add_argument("--output-layer", type=str, default="bilinear")
 	model.add_argument("--network", type=str, default="dl_classifier_network")

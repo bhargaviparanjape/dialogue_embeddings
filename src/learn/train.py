@@ -1,22 +1,25 @@
-import tqdm,os,sys
+import tqdm,os,sys,logging
 import torch
 
 from src.dataloaders import  factory as dataloader_factory
 from src.models import factory as model_factory
-from src.utils.utility_functions import AverageMeter,Timer, MultiTaskAverageMeter
+from src.utils.utility_functions import AverageMeter,Timer, MultiTaskAverageCounter
 
-def train_epochs(args, dataset, model, logger):
+logger = logging.getLogger(__name__)
+
+def train_epochs(args, dataset, model):
 
 	train_batches, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
 
 	start_epoch = 0
 	stats = {'timer': Timer(), 'epoch': 0, 'best_valid': 0}
 	for epoch in range(start_epoch, args.num_epochs):
+		stats['epoch'] = epoch
 		train_loss = AverageMeter()
 		epoch_time = Timer()
 
 		# Run 1 epoch
-		for iteration in range(train_batches):
+		for iteration in range(len(train_batches)):
 
 			batch = train_batches[iteration]
 			train_loss.update(*model.update(batch))
@@ -37,27 +40,28 @@ def train_epochs(args, dataset, model, logger):
 
 
 		# Validate Partial Train data
-		validate(args, train_batches, model, stats, logger, mode = "train")
+		validate(args, train_batches, model, stats, mode = "train")
 
 		# Validate on Development data
-		result = validate(args, validation_batches, model, stats, logger, mode = "dev")
+		# TODO: Make this more generic and abstract out inot model file
+		result = validate(args, validation_batches, model, stats, mode = "dev")
 
-		if result[args.valid_metric] > stats['best_valid']:
+		if result > stats['best_valid']:
 			logger.info('Best valid: %s = %.2f (epoch %d, %d updates)' %
-						(args.valid_metric, result[args.valid_metric],
+						(" ".join(args.metric), result,
 						 stats['epoch'], model.updates))
-			model.save(args.model_file)
-			stats['best_valid'] = result[args.valid_metric]
+			model.save()
+			stats['best_valid'] = result
 
 		# Recreate training batches using shuffle
 		logger.info("Creating train batches for epoch {0}".format(epoch+1))
 		train_batches, _, _ = dataloader_factory.get_batches(args, dataset)
 
 
-def validate(args, batches, model, stats, logger, mode = "dev"):
+def validate(args, batches, model, stats, mode = "dev"):
 
 	eval_time = Timer()
-	metrics = MultiTaskAverageMeter(args.metric)
+	metrics = MultiTaskAverageCounter(args.metric)
 
 	examples = 0
 	for iteration in range(len(batches)):
@@ -73,13 +77,14 @@ def validate(args, batches, model, stats, logger, mode = "dev"):
 		if mode == 'train' and examples >= 1e4:
 			break
 
-	logger.info('%s valid : Epoch = %d | accuracy = %s | ' %
+	logger.info('%s valid : Epoch = %d | metrics = %s | ' %
 				(mode, stats['epoch'], metrics.print_values()) +
 				'examples = %d | ' %
 				(examples) +
 				'valid time = %.2f (s)' % eval_time.time())
 
-
-
+	## accumulate score
+	result = metrics.average()
+	return result
 
 

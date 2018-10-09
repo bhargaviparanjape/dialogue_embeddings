@@ -16,9 +16,10 @@ from src.learn import train
 
 logger = logging.getLogger()
 
-def init_model(	args, dataset):
-	model = model_factory.get_model(args, logger)
+def init_model(args, dataset):
+	model = model_factory.get_model(args)
 	model.set_vocabulary(dataset.vocabulary.vocabulary)
+	return model
 
 
 def main(args):
@@ -43,11 +44,11 @@ def main(args):
 		model.cuda()
 
 	# Use multiple GPUs
-	if args.parallel:
+	if args.use_cuda and args.parallel:
 		model.parallelize()
 
 	# Train Model
-	train.train_epochs(args, dataset, model, logger)
+	train.train_epochs(args, dataset, model)
 
 	# Predict on Test Set
 

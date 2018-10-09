@@ -15,17 +15,25 @@ from src.utils.utility_functions import variable,FloatTensor,ByteTensor,LongTens
 logger = logging.getLogger(__name__)
 
 #########################################
+############### OUTPUT ##################
+#########################################
+@RegisterModel('mlp')
+class MultiLayerPerceptron(nn.Module):
+	def __init__(self, args, **kwargs):
+		super(MultiLayerPerceptron, self).__init__()
+
+
+#########################################
 ############### NETWORK #################
 #########################################
-@RegisterModel('dl_classifier_network')
+@RegisterModel('da_classifier_network')
 class DialogueClassifierNetwork(nn.Module):
 	def __init__(self, args):
 		super(DialogueClassifierNetwork, self).__init__()
 		self.dialogue_embedder = DialogueEmbedder(args)
 
 		## Define class network
-		self.next_dl_classifier = model_factory.get_model_by_name(args.output_layer, args)
-		self.prev_dl_classifier = model_factory.get_model_by_name(args.output_layer, args)
+		self.da_classifier = model_factory.get_model_by_name(args.output_layer, args)
 
 		## Define loss function: Custom masked entropy
 
