@@ -47,6 +47,6 @@ class DialogueEmbedder(nn.Module):
 
 	@staticmethod
 	def add_args(parser):
-		model_parameters = parser.add_argument_group("BiLSTM Parameters")
+		model_parameters = parser.add_argument_group("Model Parameters")
 		model_parameters.add_argument("--hidden-size", type=int)
 		model_parameters.add_argument("--num-layers", type=int)
