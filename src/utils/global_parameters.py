@@ -1,6 +1,6 @@
 import argparse,logging
 
-MAX_VOCAB_LENGTH = 5000
+MAX_VOCAB_LENGTH = 10000
 
 def str2bool(v):
 	return v.lower() in ('yes', 'true', 't', '1', 'y')

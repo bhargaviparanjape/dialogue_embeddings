@@ -1,12 +1,13 @@
 import tqdm,os,sys,logging
 import torch
-
+from random import shuffle
 from src.dataloaders import  factory as dataloader_factory
 from src.models import factory as model_factory
 from src.utils.utility_functions import AverageMeter,Timer, MultiTaskAverageCounter
 
 logger = logging.getLogger(__name__)
 
+@profile
 def train_epochs(args, dataset, model):
 
 	train_batches, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
@@ -55,7 +56,8 @@ def train_epochs(args, dataset, model):
 
 		# Recreate training batches using shuffle
 		logger.info("Creating train batches for epoch {0}".format(epoch+1))
-		train_batches, _, _ = dataloader_factory.get_batches(args, dataset)
+		# train_batches, _, _ = dataloader_factory.get_batches(args, dataset)
+		shuffle(train_batches)
 
 
 def validate(args, batches, model, stats, mode = "dev"):
