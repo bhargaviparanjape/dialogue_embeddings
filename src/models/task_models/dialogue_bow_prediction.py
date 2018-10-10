@@ -25,8 +25,8 @@ class DialogueBowNetwork(nn.Module):
 		self.args = args
 
 		## Define class network
-		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer, args)
-		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer, args)
+		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args)
+		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args)
 
 		## Define loss function: Custom masked entropy
 

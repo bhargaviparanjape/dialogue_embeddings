@@ -1,5 +1,7 @@
 import argparse,logging
 
+MAX_VOCAB_LENGTH = 5000
+
 def str2bool(v):
 	return v.lower() in ('yes', 'true', 't', '1', 'y')
 
@@ -12,6 +14,7 @@ def add_args(parser):
 	runtime.add_argument("--parallel", action="store_true", default=False)
 	runtime.add_argument("--seed", type=int, default=0)
 	runtime.add_argument("--truncate-dataset", action="store_true", default=False)
+	runtime.add_argument("--limit-vocabulary", action="store_true", default=False)
 	runtime.add_argument("--log_-level", type=str, default=logging.INFO)
 	runtime.add_argument('--run-mode', type=str, default="train", help="Run mode: {train, test}")
 

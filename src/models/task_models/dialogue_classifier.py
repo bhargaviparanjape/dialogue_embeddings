@@ -24,8 +24,8 @@ class DialogueClassifierNetwork(nn.Module):
 		self.dialogue_embedder = DialogueEmbedder(args)
 
 		## Define class network
-		self.next_dl_classifier = model_factory.get_model_by_name(args.output_layer, args)
-		self.prev_dl_classifier = model_factory.get_model_by_name(args.output_layer, args)
+		self.next_dl_classifier = model_factory.get_model_by_name(args.output_layer[0], args)
+		self.prev_dl_classifier = model_factory.get_model_by_name(args.output_layer[0], args)
 
 		## Define loss function: Custom masked entropy
 
