@@ -4,7 +4,7 @@ from random import shuffle
 from src.dataloaders import  factory as dataloader_factory
 from src.models import factory as model_factory
 from src.utils.utility_functions import AverageMeter,Timer, MultiTaskAverageCounter
-
+from random import shuffle
 logger = logging.getLogger(__name__)
 
 @profile
