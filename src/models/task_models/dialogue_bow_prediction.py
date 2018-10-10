@@ -243,7 +243,7 @@ class DialogueClassifier(AbstractModel):
 	@staticmethod
 	def add_args(parser):
 		network_parameters = parser.add_argument_group("Dialogue Classifier Parameters")
-		network_parameters.add_argument("--T", type=int, help="Threshold to choose words from vocabulary", default=0.00039)
+		network_parameters.add_argument("--T", type=float, help="Threshold to choose words from vocabulary", default=0.00039)
 
 
 	def save(self):
