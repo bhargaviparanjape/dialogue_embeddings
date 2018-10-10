@@ -30,6 +30,8 @@ class ConversationBatcher(AbstractDataLoader):
 		
 		def create_conversation_batch(batch_data, vocabulary):
 
+			vocab_length = len(vocabulary.vocabulary)
+
 			## for classification
 			utterance_options_list = []
 			next_gold_ids = []
@@ -68,7 +70,6 @@ class ConversationBatcher(AbstractDataLoader):
 					utterance_ids_list.append(u.id)
 					labels.append(u.label)
 					## randomly sample K items in conversation
-					utterance_samples = random.sample(range(length), self.K)
 
 					## last utterance predicts the previous utterance and first utterance predicts next utterance
 					if u_idx == length - 1:
@@ -86,8 +87,10 @@ class ConversationBatcher(AbstractDataLoader):
 					next_utterance_ids = vocabulary.get_indices(conversation.utterances[next_id].tokens)
 					previous_utterance_ids = vocabulary.get_indices(conversation.utterances[prev_id].tokens)
 					current_utterance_ids = vocabulary.get_indices(conversation.utterances[u_idx].tokens)
-					prev_utterance_bow = list(set(previous_utterance_ids))
-					next_utterance_bow = list(set(next_utterance_ids))
+					prev_utterance_bow = np.zeros(vocab_length)
+					next_utterance_bow = np.zeros(vocab_length)
+					prev_utterance_bow[list(set(previous_utterance_ids))] = 1
+					next_utterance_bow[list(set(next_utterance_ids))] = 1
 
 
 					## randomly sample K items in conversation
@@ -122,6 +125,8 @@ class ConversationBatcher(AbstractDataLoader):
 					next_gold_ids.append(0)
 					prev_gold_ids.append(0)
 					labels.append(0)
+					next_utterance_bow_list.append(np.zeros(vocab_length))
+					prev_utterance_bow_list.append(np.zeros(vocab_length))
 
 
 			batch['utterance_list'] = utterance_list
@@ -135,6 +140,8 @@ class ConversationBatcher(AbstractDataLoader):
 			batch['prev_utterance_gold'] = prev_gold_ids
 			batch['prev_utterance_ids'] = previous_utterance_ids_list
 			batch['label'] = labels
+			batch['next_bow_list'] = next_utterance_bow_list
+			batch['prev_bow_list'] = prev_utterance_bow_list
 
 			batch['conversation_lengths'] = conversation_lengths
 			batch['conversation_ids'] = conversation_ids
