@@ -25,10 +25,10 @@ class DialogueBowNetwork(nn.Module):
 		self.args = args
 
 		## Define class network
-		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args)
-		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args)
+		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = {"output_size" : args.output_size[0]})
+		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = {"output_size" : args.output_size[0]})
 
-		self.classifier = model_factory.get_model_by_name(args.output_layer[1], args)
+		self.classifier = model_factory.get_model_by_name(args.output_layer[1], args, kwargs = {"output_size" : args.output_size[1]})
 		## Define loss function: Custom masked entropy
 
 
@@ -89,7 +89,7 @@ class DialogueBowNetwork(nn.Module):
 #################################################
 ############### NETWORK WRAPPER #################
 #################################################
-@RegisterModel('dl_bow')
+@RegisterModel('da_bow')
 class DialogueClassifier(AbstractModel):
 	def __init__(self, args):
 
@@ -153,14 +153,14 @@ class DialogueClassifier(AbstractModel):
 			scores_next = scores_next.data.cpu()
 			scores_prev = scores_prev.data.cpu()
 			labels_predictions = labels_predictions.data.cpu()
-			input_mask1 = inputs[2].data.cpu()
-			input_mask2 = inputs[3].data.cpu()
+			input_mask1 = inputs[1].data.cpu()
+			input_mask2 = inputs[2].data.cpu()
 		else:
 			scores_next = scores_next.data
 			scores_prev = scores_prev.data
 			labels_predictions = labels_predictions.data
-			input_mask1 = inputs[2].data
-			input_mask2 = inputs[3].data
+			input_mask1 = inputs[1].data
+			input_mask2 = inputs[2].data
 
 		# Mask inputs
 		return [scores_next, scores_prev], [input_mask1, input_mask2]
@@ -172,14 +172,14 @@ class DialogueClassifier(AbstractModel):
 			true_next = inputs[-3].data.cpu()
 			true_prev = inputs[-2].data.cpu()
 			true_labels = inputs[-1].data.cpu()
-			input_mask1 = inputs[2].data.cpu()
-			input_mask2 = inputs[3].data.cpu()
+			input_mask1 = inputs[1].data.cpu()
+			input_mask2 = inputs[2].data.cpu()
 		else:
 			true_next = inputs[-3].data
 			true_prev = inputs[-2].data
 			true_labels = inputs[-1].data
-			input_mask1 = inputs[2].data
-			input_mask2 = inputs[3].data
+			input_mask1 = inputs[1].data
+			input_mask2 = inputs[2].data
 
 		return [true_next, true_prev, true_labels], [input_mask1, input_mask2]
 
@@ -257,8 +257,7 @@ class DialogueClassifier(AbstractModel):
 
 	@staticmethod
 	def add_args(parser):
-		network_parameters = parser.add_argument_group("Dialogue Classifier Parameters")
-		network_parameters.add_argument("--T", type=int, help="Threshold to choose words from vocabulary", default=0.00039)
+		pass
 
 
 	def save(self):

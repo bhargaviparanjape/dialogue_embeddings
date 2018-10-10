@@ -25,8 +25,10 @@ class DialogueBowNetwork(nn.Module):
 		self.args = args
 
 		## Define class network
-		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args)
-		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args)
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size,
+				 "output_size": args.output_size}
+		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
+		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 
 		## Define loss function: Custom masked entropy
 
@@ -147,11 +149,11 @@ class DialogueClassifier(AbstractModel):
 		if self.args.use_cuda:
 			scores_next = scores_next.data.cpu()
 			scores_prev = scores_prev.data.cpu()
-			input_mask = inputs[2].data.cpu()
+			input_mask = inputs[1].data.cpu()
 		else:
 			scores_next = scores_next.data
 			scores_prev = scores_prev.data
-			input_mask = inputs[2].data
+			input_mask = inputs[1].data
 
 		# Mask inputs
 		return [scores_next, scores_prev], input_mask
@@ -163,11 +165,11 @@ class DialogueClassifier(AbstractModel):
 		if self.args.use_cuda:
 			true_next = inputs[-2].data.cpu()
 			true_prev = inputs[-1].data.cpu()
-			input_mask = inputs[2].data.cpu()
+			input_mask = inputs[1].data.cpu()
 		else:
 			true_next = inputs[-2].data
 			true_prev = inputs[-1].data
-			input_mask = inputs[2].data
+			input_mask = inputs[1].data
 		return [true_next, true_prev], input_mask
 
 	def evaluate_metrics(self, predicted, target, mask, mode = "dev"):
@@ -243,7 +245,7 @@ class DialogueClassifier(AbstractModel):
 	@staticmethod
 	def add_args(parser):
 		network_parameters = parser.add_argument_group("Dialogue Classifier Parameters")
-		network_parameters.add_argument("--T", type=int, help="Threshold to choose words from vocabulary", default=0.00039)
+		network_parameters.add_argument("--T", type=float, help="Threshold to choose words from vocabulary", default=0.001)
 
 
 	def save(self):

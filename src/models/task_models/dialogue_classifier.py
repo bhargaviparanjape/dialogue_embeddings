@@ -23,15 +23,17 @@ class DialogueClassifierNetwork(nn.Module):
 		super(DialogueClassifierNetwork, self).__init__()
 		self.dialogue_embedder = DialogueEmbedder(args)
 
-		## Define class network
-		self.next_dl_classifier = model_factory.get_model_by_name(args.output_layer[0], args)
-		self.prev_dl_classifier = model_factory.get_model_by_name(args.output_layer[0], args)
+		## Define class networkict_
+		dict_ = {"input_size": args.output_input_size , "output_size" : 1}
+		self.next_dl_classifier = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
+		self.prev_dl_classifier = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 
 		## Define loss function: Custom masked entropy
 
 
 	def forward(self, *input):
-		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch , options_tensor, goldids_next_variable, goldids_prev_variable] = input
+		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch , options_tensor,
+		 goldids_next_variable, goldids_prev_variable] = input
 
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])

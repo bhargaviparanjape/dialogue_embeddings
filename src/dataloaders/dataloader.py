@@ -106,8 +106,8 @@ class ConversationBatcher(AbstractDataLoader):
 					utterance_options_list.append(utterance_samples)
 					next_gold_ids.append(gold_next_index)
 					prev_gold_ids.append(gold_prev_index)
-					next_utterance_ids_list.append(next_utterance_ids)
-					previous_utterance_ids_list.append(previous_utterance_ids)
+					next_utterance_ids_list.append(pad_seq(next_utterance_ids, max_utterance_length))
+					previous_utterance_ids_list.append(pad_seq(previous_utterance_ids, max_utterance_length))
 					# Next utterance bow will be a vector over Vocabulary
 					next_utterance_bow_list.append(next_utterance_bow)
 					prev_utterance_bow_list.append(prev_utterance_bow)
@@ -120,6 +120,8 @@ class ConversationBatcher(AbstractDataLoader):
 				for i in range(max_num_utterances - length):
 					utterance_list.append([])
 					utterance_word_ids_list.append(pad_seq([], max_utterance_length))
+					next_utterance_ids_list.append(pad_seq([], max_utterance_length))
+					previous_utterance_ids_list.append(pad_seq([], max_utterance_length))
 					utterance_ids_list.append(-1)
 					utterance_options_list.append([length + i + c_idx*max_num_utterances]*self.K)
 					next_gold_ids.append(0)

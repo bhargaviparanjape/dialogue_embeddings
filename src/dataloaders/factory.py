@@ -57,5 +57,7 @@ def get_batches(args, dataset):
 def set_dataset_arguments(args, dataset):
 	if args.model == "da_classifier":
 		vars(args)["output_size"] = dataset.label_set_size
-	elif args.model == "dl_bow":
+	elif args.model == "dl_bow" or args.model == "dl_bow2":
 		vars(args)["output_size"] = len(dataset.vocabulary.vocabulary)
+	elif args.model == "da_bow":
+		vars(args)["output_size"] = [len(dataset.vocabulary.vocabulary), dataset.label_set_size]

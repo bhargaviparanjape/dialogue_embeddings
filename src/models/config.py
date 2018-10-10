@@ -14,7 +14,7 @@ def add_args(parser):
 	model.add_argument("--fixed-utterance-encoder", action="store_false", default=True)
 	model.add_argument("--conversation-encoder", type=str, default="bilstm")
 	model.add_argument("--output-layer", type=str, default=[], action = "append")
-	model.add_argument("--output-weights", type=str, default=[], action = "append")
+	model.add_argument("--output-weights", type=float, default=[], action = "append")
 	model.add_argument("--network", type=str, default="dl_classifier_network")
 
 	## TODO: Each Objective and Metric also have wrapper classes and thier own config functions
