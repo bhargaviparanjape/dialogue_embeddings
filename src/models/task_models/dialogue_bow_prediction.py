@@ -33,27 +33,28 @@ class DialogueBowNetwork(nn.Module):
 		## Define loss function: Custom masked entropy
 
 
-	def multilabel_cross_entropy(self, input, target,mask):
+	def multilabel_cross_entropy(self, input, target, mask):
 		negative_log_prob = -(F.log_softmax(input))
 		#TODO: Divide by length of each utterance and divide by batch size
-		loss = (negative_log_prob*target.float()).sum()/target.float().sum()
+		loss = (torch.gather(negative_log_prob, 1, target) * mask.float()).sum()/mask.float().sum()
+		# loss = (negative_log_prob*target.float()).sum()/target.float().sum()
 		return loss
 
 	def forward(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch,
-		gold_next_bow, gold_prev_bow] = input
+		gold_next_mask, gold_prev_mask, gold_next_bow, gold_prev_bow] = input
 
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
 		## Get BOW Score
-		next_vocabulary_scores = self.next_bow_scorer(conversation_encoded.squeeze(1))
+		next_vocab_scores = self.next_bow_scorer(conversation_encoded.squeeze(1))
 		prev_vocab_scores = self.prev_bow_scorer(conversation_encoded.squeeze(1))
 
 		## Computing custom masked cross entropy
-		next_loss = self.multilabel_cross_entropy(next_vocabulary_scores, gold_next_bow, input_mask_variable)
-		prev_loss = self.multilabel_cross_entropy(prev_vocab_scores, gold_prev_bow, input_mask_variable)
+		next_loss = self.multilabel_cross_entropy(next_vocab_scores, gold_next_bow, gold_next_mask)
+		prev_loss = self.multilabel_cross_entropy(prev_vocab_scores, gold_prev_bow, gold_prev_mask)
 
 		## Average loss for next and previous conversations
 		loss = (next_loss + prev_loss) / 2
@@ -220,11 +221,13 @@ class DialogueClassifier(AbstractModel):
 
 		## Prepare Ouput (If exists)
 		gold_next_bow_vectors = LongTensor(batch['next_bow_list'])
-		gold_prev_bow_vectors = LongTensor(batch['next_bow_list'])
+		gold_prev_bow_vectors = LongTensor(batch['prev_bow_list'])
+		gold_next_bow_mask = LongTensor(batch['next_bow_mask'])
+		gold_prev_bow_mask = LongTensor(batch['prev_bow_mask'])
 
 		if mode == "train":
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, \
-				gold_next_bow_vectors, gold_prev_bow_vectors
+				gold_next_bow_mask, gold_prev_bow_mask, gold_next_bow_vectors, gold_prev_bow_vectors
 		else:
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch
 

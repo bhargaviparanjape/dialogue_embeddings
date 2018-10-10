@@ -87,10 +87,8 @@ class ConversationBatcher(AbstractDataLoader):
 					next_utterance_ids = vocabulary.get_indices(conversation.utterances[next_id].tokens)
 					previous_utterance_ids = vocabulary.get_indices(conversation.utterances[prev_id].tokens)
 					current_utterance_ids = vocabulary.get_indices(conversation.utterances[u_idx].tokens)
-					prev_utterance_bow = np.zeros(vocab_length)
-					next_utterance_bow = np.zeros(vocab_length)
-					prev_utterance_bow[list(set(previous_utterance_ids))] = 1
-					next_utterance_bow[list(set(next_utterance_ids))] = 1
+					prev_utterance_bow = list(set(previous_utterance_ids))
+					next_utterance_bow = list(set(next_utterance_ids))
 
 
 					## randomly sample K items in conversation
@@ -127,14 +125,20 @@ class ConversationBatcher(AbstractDataLoader):
 					next_gold_ids.append(0)
 					prev_gold_ids.append(0)
 					labels.append(0)
-					next_utterance_bow_list.append(np.zeros(vocab_length))
-					prev_utterance_bow_list.append(np.zeros(vocab_length))
+					next_utterance_bow_list.append([])
+					prev_utterance_bow_list.append([])
+
+			# Generate BOW Mask
+			max_next_bows_batch = max(len(l) for l in next_utterance_bow_list)
+			max_prev_bows_batch = max(len(l) for l in previous_utterance_ids_list)
+			next_utterance_bow_list = [pad_seq(l, max_next_bows_batch) for l in next_utterance_bow_list]
+			prev_utterance_bow_list = [pad_seq(l, max_prev_bows_batch) for l in prev_utterance_bow_list]
 
 
 			batch['utterance_list'] = utterance_list
 			batch['utterance_word_ids'] = np.array(utterance_word_ids_list)
 			batch['utterance_ids_list'] = np.array(utterance_ids_list)
-			batch['input_mask'] = (1*(batch['utterance_word_ids']!= 0))
+			batch['input_mask'] = (1 * (batch['utterance_word_ids'] != 0))
 
 			batch['utterance_options_list'] = utterance_options_list
 			batch['next_utterance_gold'] = next_gold_ids
@@ -142,8 +146,10 @@ class ConversationBatcher(AbstractDataLoader):
 			batch['prev_utterance_gold'] = prev_gold_ids
 			batch['prev_utterance_ids'] = previous_utterance_ids_list
 			batch['label'] = labels
-			batch['next_bow_list'] = next_utterance_bow_list
-			batch['prev_bow_list'] = prev_utterance_bow_list
+			batch['next_bow_list'] = np.array(next_utterance_bow_list)
+			batch['prev_bow_list'] = np.array(prev_utterance_bow_list)
+			batch['next_bow_mask'] = (1 * (batch['next_bow_list'] != 0))
+			batch['prev_bow_mask'] = (1 * (batch['prev_bow_list'] != 0))
 
 			batch['conversation_lengths'] = conversation_lengths
 			batch['conversation_ids'] = conversation_ids
