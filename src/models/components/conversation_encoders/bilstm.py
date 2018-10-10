@@ -9,14 +9,26 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from src.models.factory import RegisterModel
 from src.utils.utility_functions import variable, FloatTensor, ByteTensor, LongTensor
 
+@RegisterModel('noenc')
+class NoEncoder(nn.Module):
+	def __init__(self, args, **kwargs):
+		super(NoEncoder, self).__init__()
+		self.args = args
+
+	def forward(self, x, x_mask):
+		return x, None
+
+
+
 
 @RegisterModel('bilstm')
 class BiLSTMEncoder(nn.Module):
 	def __init__(self, args, **kwargs):
 		super(BiLSTMEncoder, self).__init__()
-		# self.input_size = kwargs["input_size"]
-		# self.hidden_size = kwargs["hidden_size"]
-		# self.num_layers = kwargs["num_layers"]
+		# self.input_size = kwargs["kwargs"]["input_size"]
+		# self.hidden_size = kwargs["kwargs"]["hidden_size"]
+		# self.num_layers = kwargs["kwargs"]["num_layers"]
+		self.args = args
 		self.input_size = args.embed_size
 		self.hidden_size = args.hidden_size
 		self.num_layers = args.num_layers
