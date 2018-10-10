@@ -28,7 +28,7 @@ class DialogueActClassifierNetwork(nn.Module):
 		## output labels size
 		dict_ = {"input_size": 2*args.hidden_size, "hidden_size": args.output_hidden_size,
 							 "output_size": args.output_size}
-		self.classifier = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
+		self.classifier = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 
 		## Define loss function: Custom masked entropy
 

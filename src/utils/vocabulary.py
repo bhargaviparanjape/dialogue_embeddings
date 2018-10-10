@@ -1,3 +1,6 @@
+from collections import defaultdict
+from src.utils.global_parameters import MAX_VOCAB_LENGTH
+
 class Vocabulary(object):
 	def __init__(self, pad_token='<pad>', unk='<unk>', sos='<sos>', eos='<eos>'):
 
@@ -24,13 +27,17 @@ class Vocabulary(object):
 		self.id_to_nertag = dict()
 		self.id_to_postag = dict()
 
+		self.counter = defaultdict(int)
+
 	def add_and_get_index(self, word):
 		if word in self.vocabulary:
+			self.counter[word] = 1
 			return self.vocabulary[word]
 		else:
 			length = len(self.vocabulary)
 			self.vocabulary[word] = length
 			self.id_to_vocab[length] = word
+			self.counter[word] += 1
 			return length
 
 	def add_and_get_indices(self, words):
@@ -59,6 +66,24 @@ class Vocabulary(object):
 	def get_char_indices(self, word):
 		return [self.char_to_id[word[i]] for i in range(len(word))]
 
+	def truncate(self):
+		vocabulary = sorted(self.vocabulary.items(), key=lambda k_v: k_v[1], reverse=True)
+		self.vocabulary = {}
+		self.id_to_vocab = {}
+		self.vocabulary[self.pad_token] = 0
+		self.vocabulary[self.unk] = 1
+		self.vocabulary[self.sos] = 2
+		self.vocabulary[self.eos] = 3
+
+		self.id_to_vocab[0] = self.pad_token
+		self.id_to_vocab[1] = self.unk
+		self.id_to_vocab[2] = self.sos
+		self.id_to_vocab[3] = self.eos
+		for id, item in enumerate(vocabulary[:MAX_VOCAB_LENGTH]):
+			self.vocabulary[item[0]] = id + 4
+			self.id_to_vocab[id + 4] = item[0]
+
+
 	def get_word(self, index):
 		if index < len(self.id_to_vocab):
 			return self.id_to_vocab[index]
@@ -74,6 +99,7 @@ class Vocabulary(object):
 
 	def __add__(self, other):
 		## keys in both vocabularies
+		## TODO: NO support for limiting the vocabulary of joint datasets using counter
 
 		unique_words = list(set(list(self.vocabulary.keys()) + list(other.vocabulary.keys())) - \
 					   set([self.pad_token, self.unk, self.sos, self.eos]))
