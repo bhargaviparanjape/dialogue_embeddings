@@ -44,6 +44,9 @@ class DialogueClassifierNetwork(nn.Module):
 													 conversation_encoded.shape[2]).contiguous()
 		encoded_expand = encoded_expand.view(encoded_expand.shape[0] * options_tensor.shape[1], encoded_expand.shape[2])
 
+		## Time Constrained but less memory
+
+
 		## Output Layer
 		next_logits = self.next_dl_classifier(encoded_expand, options)
 		prev_logits = self.prev_dl_classifier(encoded_expand, options)
