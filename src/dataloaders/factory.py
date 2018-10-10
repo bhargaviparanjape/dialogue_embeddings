@@ -52,3 +52,7 @@ def get_batches(args, dataset):
 		batches = batcher.get_batches(args, dataset)
 
 	return batches
+
+
+def set_dataset_arguments(args, dataset):
+	vars(args)["output_size"] = dataset.label_set_size

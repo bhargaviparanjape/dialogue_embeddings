@@ -14,93 +14,59 @@ from src.utils.utility_functions import variable,FloatTensor,ByteTensor,LongTens
 
 logger = logging.getLogger(__name__)
 
-#########################################
-############### OUTPUT ##################
-#########################################
-@RegisterModel('mlp')
-class MultiLayerPerceptron(nn.Module):
-	def __init__(self, args, **kwargs):
-		super(MultiLayerPerceptron, self).__init__()
-
 
 #########################################
 ############### NETWORK #################
 #########################################
 @RegisterModel('da_classifier_network')
-class DialogueClassifierNetwork(nn.Module):
+class DialogueActClassifierNetwork(nn.Module):
 	def __init__(self, args):
-		super(DialogueClassifierNetwork, self).__init__()
+		super(DialogueActClassifierNetwork, self).__init__()
 		self.dialogue_embedder = DialogueEmbedder(args)
 
 		## Define class network
-		self.da_classifier = model_factory.get_model_by_name(args.output_layer, args)
+		## output labels size
+		dict_ = {"input_size": 2*args.hidden_size, "hidden_size": args.output_hidden_size,
+							 "output_size": args.output_size}
+		self.classifier = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
 
 		## Define loss function: Custom masked entropy
 
 
 	def forward(self, *input):
-		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch , options_tensor, goldids_next_variable, goldids_prev_variable] = input
+		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch , gold_labels] = input
 
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
-		## For Classification, expand each utterance by options
-		## TODO: Efficient Implementation
-		options = torch.index_select(conversation_encoded.squeeze(1), 0, options_tensor.view(-1))
-		encoded_expand = conversation_encoded.expand(conversation_encoded.shape[0], options_tensor.shape[1],
-													 conversation_encoded.shape[2]).contiguous()
-		encoded_expand = encoded_expand.view(encoded_expand.shape[0] * options_tensor.shape[1], encoded_expand.shape[2])
-
-		## Output Layer
-		next_logits = self.next_dl_classifier(encoded_expand, options)
-		prev_logits = self.prev_dl_classifier(encoded_expand, options)
-
-		## Computing custom masked cross entropy
-		next_logits_flat = next_logits.view(conversation_encoded.shape[0], options_tensor.shape[1], -1)
-		next_log_probs_flat = F.log_softmax(next_logits_flat, dim=1)
-		prev_logits_flat = prev_logits.view(conversation_encoded.shape[0], options_tensor.shape[1], -1)
-		prev_log_probs_flat = F.log_softmax(prev_logits_flat, dim=1)
-		losses_flat = -torch.gather(next_log_probs_flat.squeeze(2), dim=1, index=goldids_next_variable.view(-1, 1)) \
-					  + (-torch.gather(prev_log_probs_flat.squeeze(2), dim=1, index=goldids_prev_variable.view(-1, 1)))
-		losses = losses_flat * conversation_mask.view(conversation_batch_size * max_num_utterances_batch, -1)
-
-		## Average loss for next and previous conversations
-		loss = losses.sum() / (2 * conversation_mask.float().sum())
-
+		label_logits = self.classifier(conversation_encoded.squeeze(1))
+		label_log_probs_flat = F.log_softmax(label_logits, dim=1)
+		label_losses_flat = -torch.gather(label_log_probs_flat, dim=1, index=gold_labels.view(-1, 1))
+		label_losses = label_losses_flat * conversation_mask.view(conversation_batch_size * max_num_utterances_batch, -1)
+		loss = label_losses.sum() / conversation_mask.float().sum()
 		return loss
 
 	def evaluate(self, *input):
-		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, options_tensor] = input
+		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch] = input
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
-		## For Classification, expand each utterance by options
-		options = torch.index_select(conversation_encoded.squeeze(1), 0, options_tensor.view(-1))
-		encoded_expand = conversation_encoded.expand(conversation_encoded.shape[0], options_tensor.shape[1],
-													 conversation_encoded.shape[2]).contiguous()
-		encoded_expand = encoded_expand.view(encoded_expand.shape[0] * options_tensor.shape[1], encoded_expand.shape[2])
+		label_logits = self.classifier(conversation_encoded.squeeze(1))
+		return label_logits
 
-		## Output Layer
-		next_logits = self.next_dl_classifier(encoded_expand, options)
-		prev_logits = self.prev_dl_classifier(encoded_expand, options)
-
-		## Maximum Values
-		next_logits_flat = next_logits.view(conversation_encoded.shape[0], options_tensor.shape[1], -1)
-		prev_logits_flat = prev_logits.view(conversation_encoded.shape[0], options_tensor.shape[1], -1)
-		next_predictions = torch.sort(next_logits_flat.squeeze(2), descending=True)[1][:, 0]
-		prev_predictions = torch.sort(prev_logits_flat.squeeze(2), descending=True)[1][:, 0]
-
-		return next_predictions, prev_predictions
-
-
+	@staticmethod
+	def add_args(parser):
+		model_parameters = parser.add_argument_group("Model Parameters")
+		model_parameters.add_argument("--output-size", type=int)
+		model_parameters.add_argument("--output-hidden-size", type=int)
 
 #################################################
 ############### NETWORK WRAPPER #################
 #################################################
-@RegisterModel('dl_classifier')
-class DialogueClassifier(AbstractModel):
+@RegisterModel('da_classifier')
+class DialogueActClassifier(AbstractModel):
 	def __init__(self, args):
 
 		## Initialize environment
@@ -146,7 +112,6 @@ class DialogueClassifier(AbstractModel):
 			loss_value = loss.data.item()
 		return loss_value, batch_size
 
-
 	def checkpoint(self, file_path, epoch_no):
 		raise NotImplementedError
 
@@ -156,46 +121,38 @@ class DialogueClassifier(AbstractModel):
 
 		# Run forward
 		batch_size, *inputs = self.vectorize(inputs, mode = "test")
-		scores_next, scores_prev = self.network.evaluate(*inputs)
-
+		scores_logits = self.network.evaluate(*inputs)
+		labels_predictions = torch.sort(scores_logits, descending=True)[1][:, 0]
 		# Convert to CPU
 		if self.args.use_cuda:
-			scores_next = scores_next.data.cpu()
-			scores_prev = scores_prev.data.cpu()
+			labels_predictions = labels_predictions.data.cpu()
 			input_mask = inputs[2].data.cpu()
 		else:
-			scores_next = scores_next.data
-			scores_prev = scores_prev.data
+			labels_predictions = labels_predictions.data
 			input_mask = inputs[2].data
 
 		# Mask inputs
-		return [scores_next, scores_prev], input_mask
+		return [labels_predictions], input_mask
 
 
 	def target(self, inputs):
 		batch_size, *inputs = self.vectorize(inputs, mode="train")
 		# Convert to CPU
 		if self.args.use_cuda:
-			true_next = inputs[-2].data.cpu()
-			true_prev = inputs[-1].data.cpu()
+			true_labels = inputs[-1].data.cpu()
 			input_mask = inputs[2].data.cpu()
 		else:
-			true_next = inputs[-2].data
-			true_prev = inputs[-1].data
+			true_labels = inputs[-1].data
 			input_mask = inputs[2].data
-		return [true_next, true_prev], input_mask
+		return [true_labels], input_mask
 
 	def evaluate_metrics(self, predicted, target, mask, mode = "dev"):
 		# Named Metric List
 		mask = mask.view(-1, 1).squeeze(1)
-		next_predicted = predicted[0]
-		prev_predicted = predicted[1]
-		next_correct = target[0]
-		prev_correct = target[1]
-		next_predictions_binary = (next_predicted == next_correct)
-		prev_predictions_binary = (prev_predicted == prev_correct)
-		prev_predictions_binary[prev_predictions_binary == 0] = 2
-		correct = ((next_predictions_binary == prev_predictions_binary).long()*mask.long()).sum().numpy()
+		label_predicted = predicted[0]
+		label_correct = target[0]
+		predictions_binary = (label_predicted == label_correct)
+		correct = (predictions_binary.long()*mask.long()).sum().numpy()
 		total = mask.sum().data.numpy()
 		metric_update_dict = {}
 		metric_update_dict[self.args.metric[0]] = [correct, total]
@@ -226,17 +183,13 @@ class DialogueClassifier(AbstractModel):
 		conversation_mask = variable(FloatTensor(batch['conversation_mask']))
 
 		## Prepare Ouput (If exists)
-		## TODO: Eliminate options tensor to make faster
-		options_tensor = LongTensor(batch['utterance_options_list'])
-		goldids_next_variable = LongTensor(batch['next_utterance_gold'])
-		goldids_prev_variable = LongTensor(batch['prev_utterance_gold'])
+		utterance_labels = LongTensor(batch['label'])
 
 		if mode == "train":
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, \
-				options_tensor, goldids_next_variable, goldids_prev_variable
+				utterance_labels
 		else:
-			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, \
-				   options_tensor
+			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch
 
 
 	def init_optimizer(self):
@@ -250,14 +203,6 @@ class DialogueClassifier(AbstractModel):
 		"""
 		self.parallel = True
 		self.network = torch.nn.DataParallel(self.network)
-
-
-	@staticmethod
-	def add_args(parser):
-		network_parameters = parser.add_argument_group("Dialogue Classifier Parameters")
-		network_parameters.add_argument("--dl_classifier_input_size", type=int)
-		network_parameters.add_argument("--dl_classifier_hidden_size", type=int)
-		network_parameters.add_argument("--K", type=int, help="Number of options provided to dialogue classifier", default=4)
 
 
 	def save(self):
@@ -287,9 +232,13 @@ class DialogueClassifier(AbstractModel):
 		word_dict = saved_params['word_dict']
 		state_dict = saved_params['state_dict']
 		args = saved_params['args']
-
+		# TODO: Handle code for replaceing new paramters with older ones
 		# Not handling fixed embedding layer
-		model = DialogueClassifier(args)
+		model = DialogueActClassifier(args)
 		model.network.load_state_dict(state_dict)
 		model.set_vocabulary(word_dict)
 		return model
+
+	@staticmethod
+	def add_args(parser):
+		pass

@@ -247,8 +247,6 @@ class DialogueClassifier(AbstractModel):
 	@staticmethod
 	def add_args(parser):
 		network_parameters = parser.add_argument_group("Dialogue Classifier Parameters")
-		# network_parameters.add_argument("--dl_classifier_input_size", type=int)
-		# network_parameters.add_argument("--dl_classifier_hidden_size", type=int)
 		network_parameters.add_argument("--K", type=int, help="Number of options provided to dialogue classifier", default=4)
 
 

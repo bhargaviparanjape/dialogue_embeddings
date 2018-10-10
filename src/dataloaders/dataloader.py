@@ -89,6 +89,7 @@ class ConversationBatcher(AbstractDataLoader):
 					prev_utterance_bow = list(set(previous_utterance_ids))
 					next_utterance_bow = list(set(next_utterance_ids))
 
+
 					## randomly sample K items in conversation
 					options = list(set(range(length)) - set([next_id, prev_id]))
 					utterance_samples = np.random.choice(options, num_samples, replace=False)
@@ -104,6 +105,7 @@ class ConversationBatcher(AbstractDataLoader):
 					prev_gold_ids.append(gold_prev_index)
 					next_utterance_ids_list.append(next_utterance_ids)
 					previous_utterance_ids_list.append(previous_utterance_ids)
+					# Next utterance bow will be a vector over Vocabulary
 					next_utterance_bow_list.append(next_utterance_bow)
 					prev_utterance_bow_list.append(prev_utterance_bow)
 
