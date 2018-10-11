@@ -11,14 +11,13 @@ from src.learn import factory as learn_factory
 from src.models.factory import RegisterModel
 from src.models.components.output_models.dialogue_embedder import DialogueEmbedder
 from src.utils.utility_functions import variable,FloatTensor,ByteTensor,LongTensor,select_optimizer
-from sklearn.metrics import f1_score
 
 logger = logging.getLogger(__name__)
 
 #########################################
 ############### NETWORK #################
 #########################################
-@RegisterModel('dl_bow_network')
+@RegisterModel('da_dl_network')
 class DialogueBowNetwork(nn.Module):
 	def __init__(self, args):
 		super(DialogueBowNetwork, self).__init__()
@@ -26,41 +25,50 @@ class DialogueBowNetwork(nn.Module):
 		self.args = args
 
 		## Define class network
-		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size,
-				 "output_size": args.output_size}
-		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
-		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
+		## if dl: returns the scores for the K different types of dialogues
+		## if bow: returns scores over vocab
+		## if decoder: returns max sequence (greedy / beam implementation)
+		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = {"output_size" : args.output_size[0]})
+		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = {"output_size" : args.output_size[0]})
 
+		self.classifier = model_factory.get_model_by_name(args.output_layer[1], args, kwargs = {"output_size" : args.output_size[1]})
 		## Define loss function: Custom masked entropy
 
 
-	def multilabel_cross_entropy(self, input, target, mask):
-		negative_log_prob = -(F.log_softmax(input/self.args.temperature))
+	def multilabel_cross_entropy(self, input, target,mask):
+		negative_log_prob = -(F.log_softmax(input))
 		#TODO: Divide by length of each utterance and divide by batch size
-		loss = (torch.gather(negative_log_prob, 1, target) * mask.float()).sum()/mask.float().sum()
-		# loss = (negative_log_prob*target.float()).sum()/target.float().sum()
+		loss = (negative_log_prob*target.float()).sum()/target.float().sum()
 		return loss
 
 	def forward(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch,
-		gold_next_mask, gold_prev_mask, gold_next_bow, gold_prev_bow] = input
+		gold_next_bow, gold_prev_bow, gold_labels] = input
 
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
-		## Get BOW Score
-		next_vocab_scores = self.next_bow_scorer(conversation_encoded.squeeze(1))
+		## Get BOW Score and label logits for DA Classification
+		next_vocabulary_scores = self.next_bow_scorer(conversation_encoded.squeeze(1))
 		prev_vocab_scores = self.prev_bow_scorer(conversation_encoded.squeeze(1))
+		label_logits = self.classifier(conversation_encoded.squeeze(1))
 
-		## Computing custom masked cross entropy
-		next_loss = self.multilabel_cross_entropy(next_vocab_scores, gold_next_bow, gold_next_mask)
-		prev_loss = self.multilabel_cross_entropy(prev_vocab_scores, gold_prev_bow, gold_prev_mask)
+		## Computing custom negative log0likelihood
+		next_loss = self.multilabel_cross_entropy(next_vocabulary_scores, gold_next_bow, input_mask_variable)
+		prev_loss = self.multilabel_cross_entropy(prev_vocab_scores, gold_prev_bow, input_mask_variable)
+		bow_loss = (next_loss + prev_loss) / 2
 
-		## Average loss for next and previous conversations
-		loss = (next_loss + prev_loss) / 2
+		label_log_probs_flat = F.log_softmax(label_logits, dim=1)
+		label_losses_flat = -torch.gather(label_log_probs_flat, dim=1, index=gold_labels.view(-1, 1))
+		label_losses = label_losses_flat * conversation_mask.view(conversation_batch_size * max_num_utterances_batch, -1)
+		label_loss = label_losses.sum() / conversation_mask.float().sum()
 
-		return loss
+
+		## Average losses
+		combined_loss = self.args.output_weights[0]*bow_loss + self.args.output_weights[1]*label_loss
+
+		return combined_loss
 
 	def evaluate(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch] = input
@@ -75,20 +83,16 @@ class DialogueBowNetwork(nn.Module):
 
 		next_vocab_probabilities = F.softmax(next_vocab_scores, dim=1)
 		prev_vocab_probabilities = F.softmax(prev_vocab_scores, dim=1)
+		label_logits = self.classifier(conversation_encoded.squeeze(1))
 
-		## Maximum Values above a threshold hyperparameter
-		## Loop over batch (??)
-		# next_predictions = torch.sort(next_vocab_probabilities, descending=True)[0][:,]
-		# prev_predictions = torch.sort(prev_vocab_probabilities, descending=True)[0][:,]
-
-		return next_vocab_probabilities, prev_vocab_probabilities
+		return next_vocab_probabilities, prev_vocab_probabilities, label_logits
 
 
 
 #################################################
 ############### NETWORK WRAPPER #################
 #################################################
-@RegisterModel('dl_bow')
+@RegisterModel('da_bow')
 class DialogueClassifier(AbstractModel):
 	def __init__(self, args):
 
@@ -145,38 +149,47 @@ class DialogueClassifier(AbstractModel):
 
 		# Run forward
 		batch_size, *inputs = self.vectorize(inputs, mode = "test")
-		scores_next, scores_prev = self.network.evaluate(*inputs)
+		scores_next, scores_prev, labels_predictions = self.network.evaluate(*inputs)
 
 		# Convert to CPU
 		if self.args.use_cuda:
 			scores_next = scores_next.data.cpu()
 			scores_prev = scores_prev.data.cpu()
-			input_mask = inputs[1].data.cpu()
+			labels_predictions = labels_predictions.data.cpu()
+			input_mask1 = inputs[1].data.cpu()
+			input_mask2 = inputs[2].data.cpu()
 		else:
 			scores_next = scores_next.data
 			scores_prev = scores_prev.data
-			input_mask = inputs[1].data
+			labels_predictions = labels_predictions.data
+			input_mask1 = inputs[1].data
+			input_mask2 = inputs[2].data
 
 		# Mask inputs
-		return [scores_next, scores_prev], input_mask
-
+		return [scores_next, scores_prev], [input_mask1, input_mask2]
 
 	def target(self, inputs):
 		batch_size, *inputs = self.vectorize(inputs, mode="train")
 		# Convert to CPU
 		if self.args.use_cuda:
-			true_next = inputs[-2].data.cpu()
-			true_prev = inputs[-1].data.cpu()
-			input_mask = inputs[1].data.cpu()
+			true_next = inputs[-3].data.cpu()
+			true_prev = inputs[-2].data.cpu()
+			true_labels = inputs[-1].data.cpu()
+			input_mask1 = inputs[1].data.cpu()
+			input_mask2 = inputs[2].data.cpu()
 		else:
-			true_next = inputs[-2].data
-			true_prev = inputs[-1].data
-			input_mask = inputs[1].data
-		return [true_next, true_prev], input_mask
+			true_next = inputs[-3].data
+			true_prev = inputs[-2].data
+			true_labels = inputs[-1].data
+			input_mask1 = inputs[1].data
+			input_mask2 = inputs[2].data
+
+		return [true_next, true_prev, true_labels], [input_mask1, input_mask2]
 
 	def evaluate_metrics(self, predicted, target, mask, mode = "dev"):
 		# Named Metric List
-		mask = mask.view(-1, 1).squeeze(1)
+		mask1 = mask[0]
+		mask2 = mask[1]
 		next_predicted = predicted[0].numpy()
 		prev_predicted = predicted[1].numpy()
 		next_correct = target[0].numpy()
@@ -185,16 +198,14 @@ class DialogueClassifier(AbstractModel):
 		total = next_correct.sum() + prev_correct.sum()
 		# TODO: Replace by confusion matrix + F1 from sklearn to get all metrics
 		for i in range(next_predicted.shape[0]):
-			predicted_ids = np.where(next_predicted[i] > self.args.threshold)[0]
-			gold_ids = next_correct[i]
+			predicted_ids = np.where(next_predicted[0] > self.args.T)[0]
+			gold_ids = np.where(next_correct[0] > self.args.T)[0]
 			correct += len(set(gold_ids)&set(predicted_ids))
-			predicted_ids = np.where(prev_predicted[i] > self.args.threshold)[0]
-			gold_ids = prev_correct[i]
+			predicted_ids = np.where(prev_predicted[0] > self.args.T)[0]
+			gold_ids = np.where(prev_correct[0] > self.args.T)[0]
 			correct += len(set(gold_ids) & set(predicted_ids))
-			# precision: Ill Defined when no predicted IDS retrieived
-			recall = float(len(set(gold_ids)&set(predicted_ids)))/len(set(gold_ids))
 		metric_update_dict = {}
-		metric_update_dict[self.args.metric[0]] = [recall, 1]
+		metric_update_dict[self.args.metric[0]] = [correct, total]
 		return metric_update_dict
 
 	def set_vocabulary(self, vocabulary):
@@ -224,13 +235,12 @@ class DialogueClassifier(AbstractModel):
 
 		## Prepare Ouput (If exists)
 		gold_next_bow_vectors = LongTensor(batch['next_bow_list'])
-		gold_prev_bow_vectors = LongTensor(batch['prev_bow_list'])
-		gold_next_bow_mask = LongTensor(batch['next_bow_mask'])
-		gold_prev_bow_mask = LongTensor(batch['prev_bow_mask'])
+		gold_prev_bow_vectors = LongTensor(batch['next_bow_list'])
+		utterance_labels = LongTensor(batch['label'])
 
 		if mode == "train":
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, \
-				gold_next_bow_mask, gold_prev_bow_mask, gold_next_bow_vectors, gold_prev_bow_vectors
+				gold_next_bow_vectors, gold_prev_bow_vectors, utterance_labels
 		else:
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch
 
@@ -250,10 +260,7 @@ class DialogueClassifier(AbstractModel):
 
 	@staticmethod
 	def add_args(parser):
-		network_parameters = parser.add_argument_group("Dialogue Classifier Parameters")
-		network_parameters.add_argument("--threshold", type=float, help="Threshold to choose words from vocabulary", default=0.001)
-		network_parameters.add_argument("--temperature", type=float, help="Threshold to choose words from vocabulary",
-										default=0.5)
+		pass
 
 
 	def save(self):
