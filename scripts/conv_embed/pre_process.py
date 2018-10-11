@@ -8,6 +8,7 @@ from src.dataloaders import factory as dataloader_factory
 from allennlp.modules.elmo import Elmo, batch_to_ids
 import json
 from src.utils import global_parameters
+from multiprocessing import Pool
 
 
 def average_embeddings(embeddings, mask):
@@ -20,6 +21,7 @@ def get_pretrained_embeddings(args, dataset):
 	options_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json"
 	weight_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
 	ee = Elmo(options_file, weight_file, requires_grad=False, num_output_representations=1, dropout=args.dropout)
+	job_pool = Pool(arg.job_size)
 	with open(args.output_path , "w+") as output_path:
 		for sub_dataset in [dataset.train_dataset, dataset.valid_dataset, dataset.test_dataset]:
 			for conversation in sub_dataset:
@@ -45,6 +47,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--output-path", type=str, default=None)
 	parser.add_argument("--dropout", type=float, default=0.2)
+	parser.add_argument("--jobsize", type=int, default=10)
 	global_parameters.add_args(parser)
 	args = parser.parse_args()
 	logging.basicConfig(level=logging.DEBUG)
