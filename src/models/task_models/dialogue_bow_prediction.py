@@ -182,19 +182,21 @@ class DialogueClassifier(AbstractModel):
 		next_correct = target[0].numpy()
 		prev_correct = target[1].numpy()
 		correct = 0
-		total = next_correct.sum() + prev_correct.sum()
+		total = 0
 		# TODO: Replace by confusion matrix + F1 from sklearn to get all metrics
 		for i in range(next_predicted.shape[0]):
 			predicted_ids = np.where(next_predicted[i] > self.args.threshold)[0]
 			gold_ids = next_correct[i]
 			correct += len(set(gold_ids)&set(predicted_ids))
+			total += len(set(gold_ids))
 			predicted_ids = np.where(prev_predicted[i] > self.args.threshold)[0]
 			gold_ids = prev_correct[i]
 			correct += len(set(gold_ids) & set(predicted_ids))
+			total += len(set(gold_ids))
 			# precision: Ill Defined when no predicted IDS retrieived
-			recall = float(len(set(gold_ids)&set(predicted_ids)))/len(set(gold_ids))
+			# recall = float(len(set(gold_ids)&set(predicted_ids)))/len(set(gold_ids))
 		metric_update_dict = {}
-		metric_update_dict[self.args.metric[0]] = [recall, 1]
+		metric_update_dict[self.args.metric[0]] = [correct, total]
 		return metric_update_dict
 
 	def set_vocabulary(self, vocabulary):
