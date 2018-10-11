@@ -3,11 +3,11 @@ from os.path import dirname, realpath
 import numpy as np
 import torch
 import random
-sys.path.append(dirname(dirname(realpath(__file__))))
-from embed.utils import parameters
-from embed.dataloaders import factory as dataloader_factory
+sys.path.append(dirname(dirname(dirname(realpath(__file__)))))
+from src.dataloaders import factory as dataloader_factory
 from allennlp.modules.elmo import Elmo, batch_to_ids
 import json
+from src.utils import global_parameters
 
 
 def average_embeddings(embeddings, mask):
@@ -35,16 +35,18 @@ def get_pretrained_embeddings(args, dataset):
 					dict = ee(character_ids[i:i + 10].unsqueeze(0))
 					embeddings[i:i + 10] = dict['elmo_representations'][0]
 					mask[i:i + 10] = dict['mask']
-				if args.lookup == "avg":
-					conversation_embeddings = average_embeddings(embeddings, mask)
-					conversation_dict["embeddings"] = conversation_embeddings
+				conversation_embeddings = average_embeddings(embeddings, mask)
+				conversation_dict["embeddings"] = conversation_embeddings
 				output_path.write(json.dumps(conversation_dict)+"\n")
 
 
 
 if __name__ == '__main__':
-
-	args = parameters.parse_arguments()
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--output-path", type=str, default=None)
+	parser.add_argument("--dropout", type=float, default=0.2)
+	global_parameters.add_args(parser)
+	args = parser.parse_args()
 	logging.basicConfig(level=logging.DEBUG)
 	logger = logging.getLogger(__name__)
 
