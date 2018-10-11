@@ -85,6 +85,7 @@ def validate(args, batches, model, stats, mode = "dev"):
 				'valid time = %.2f (s)' % eval_time.time())
 
 	## accumulate score
+	# The metrics that will be considered in the validation history and used for patience computation
 	result = metrics.average()
 	return result
 
