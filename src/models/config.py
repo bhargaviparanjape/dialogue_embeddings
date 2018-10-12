@@ -21,6 +21,7 @@ def add_args(parser):
 	model.add_argument("--objective", type=str, action="append")
 	model.add_argument("--objective-weights", type=str, action="append")
 	model.add_argument("--metric", type=str, action="append")
+	model.add_argument("--valid-metric", type=str, default=[], action="append")
 	model.add_argument("--dropout", type=float, default=0.2)
 
 	## Model Parameters for every model in registry

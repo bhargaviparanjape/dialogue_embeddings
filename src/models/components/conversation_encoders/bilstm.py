@@ -60,10 +60,19 @@ class BiLSTMEncoder(nn.Module):
 	# 	model_parameters.add_argument("--hidden-size", type=int)
 	# 	model_parameters.add_argument("--num-layers", type=int)
 
-@RegisterModel('lstmdecoder')
+@RegisterModel('lstm_decoder')
 class LSTMDecoder(nn.Module):
-	def __init__(self, args):
-		raise NotImplementedError
+	def __init__(self, args, **kwargs):
+		super(LSTMDecoder, self).__init__()
+		self.args = args
+		self.input_size = args.embed_size
+		self.hidden_size = args.hidden_size
+		self.num_layers = args.num_layers
+		self.output_size = kwargs["kwargs"]["output_size"]
+		self.lstm = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size, num_layers=self.num_layers,
+							batch_first=True, dropout=args.dropout, bidirectional=False)
+		self.out = nn.Linear(self.hidden_size, self.output_size)
+
 
 	def forward(self, *input):
 		## given hidden representation and techer forcing at test time (greedy or beam decoding)

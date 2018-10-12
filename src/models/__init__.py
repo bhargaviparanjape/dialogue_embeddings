@@ -3,7 +3,7 @@ import src.models.task_models.dialogue_classifier
 import src.models.task_models.dialogue_act_classifier
 import src.models.task_models.dialogue_bow_prediction
 import src.models.task_models.dialogue_bow2_prediction
-import src.models.task_models.dialogue_act_auxiliary_task
+import src.models.task_models.dialogue_act_bow
 import src.models.task_models.dialogue_decoder
 
 ## Components

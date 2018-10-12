@@ -142,9 +142,12 @@ class ConversationBatcher(AbstractDataLoader):
 
 			batch['utterance_options_list'] = utterance_options_list
 			batch['next_utterance_gold'] = next_gold_ids
-			batch['next_utterance_ids'] = next_utterance_ids_list
+			batch['next_utterance_ids'] = np.array(next_utterance_ids_list)
+			batch['next_utterance_mask'] = (1 * (batch['next_utterance_ids'] != 0))
 			batch['prev_utterance_gold'] = prev_gold_ids
-			batch['prev_utterance_ids'] = previous_utterance_ids_list
+			batch['prev_utterance_ids'] = np.array(previous_utterance_ids_list)
+			batch['prev_utterance_mask'] = (1 * (batch['prev_utterance_ids'] != 0))
+
 			batch['label'] = labels
 			batch['next_bow_list'] = np.array(next_utterance_bow_list)
 			batch['prev_bow_list'] = np.array(prev_utterance_bow_list)

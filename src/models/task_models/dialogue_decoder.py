@@ -27,32 +27,30 @@ class DialogueBowNetwork(nn.Module):
 		## Define class network
 		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size,
 				 "output_size": args.output_size}
-		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
-		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
+		self.next_utterance_decoder = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
+		self.prev_utterance_decoder = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 
 		## Define loss function: Custom masked entropy
 
-	def masked_softmax(self, input, target, mask):
-		## normalization has to still be done over the entire vocabulary and only the log probs have to be collected of the target and also masked
-		negative_log_prob = -(F.log_softmax(input))
-		loss = (torch.gather(negative_log_prob, 1, target)*mask).sum()/ mask.sum()
-		return loss
+	def masked_loglikelihood(self, scores, target, mask):
+		pass
 
 	def forward(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, max_utterance_length,
-		next_utterance_word_ids, prev_utterance_word_ids] = input
+		next_utterance_mask, prev_utterance_mask, next_utterance_word_ids,
+		prev_utterance_word_ids, next_utterance_embeddings, prev_utterance_embeddings] = input
 
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
 		## Get BOW Score
-		next_vocabulary_scores = self.next_bow_scorer(conversation_encoded.squeeze(1))
-		prev_vocab_scores = self.prev_bow_scorer(conversation_encoded.squeeze(1))
+		next_vocabulary_scores = self.next_utterance_decoder(conversation_encoded.squeeze(1), next_utterance_embeddings, next_utterance_mask)
+		prev_vocab_scores = self.prev_utterance_decoder(conversation_encoded.squeeze(1), prev_utterance_embeddings, prev_utterance_mask)
 
 		## Computing custom masked cross entropy
-		next_loss = self.masked_softmax(next_vocabulary_scores, next_utterance_word_ids, input_mask_variable)
-		prev_loss = self.masked_softmax(prev_vocab_scores, prev_utterance_word_ids, input_mask_variable)
+		next_loss = self.masked_loglikelihood(next_vocabulary_scores, next_utterance_word_ids, next_utterance_mask)
+		prev_loss = self.masked_loglikelihood(prev_vocab_scores, prev_utterance_word_ids, prev_utterance_mask)
 
 		## Average loss for next and previous conversations
 		loss = (next_loss + prev_loss) / 2
@@ -66,7 +64,7 @@ class DialogueBowNetwork(nn.Module):
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
-		## Get BOW Score
+		## TODO: Get BOW Score (TBD : BEAM DECODING)
 		next_vocab_scores = self.next_bow_scorer(conversation_encoded.squeeze(1))
 		prev_vocab_scores = self.prev_bow_scorer(conversation_encoded.squeeze(1))
 
@@ -81,7 +79,7 @@ class DialogueBowNetwork(nn.Module):
 #################################################
 ############### NETWORK WRAPPER #################
 #################################################
-@RegisterModel('dl_bow2')
+@RegisterModel('dl_decoder')
 class DialogueClassifier(AbstractModel):
 	def __init__(self, args):
 
@@ -116,8 +114,7 @@ class DialogueClassifier(AbstractModel):
 		# Update parameters
 		self.optimizer.zero_grad()
 		loss.backward()
-		torch.nn.utils.clip_grad_norm_(self.network.parameters(),
-									   self.args.clip_threshold)
+		torch.nn.utils.clip_grad_norm_(self.network.parameters(), self.args.clip_threshold)
 		self.optimizer.step()
 		self.updates += 1
 
@@ -211,13 +208,21 @@ class DialogueClassifier(AbstractModel):
 		conversation_lengths = batch['conversation_lengths']
 		conversation_mask = variable(FloatTensor(batch['conversation_mask']))
 
-		## Prepare Ouput (If exists)
-		gold_next_id_vectors = LongTensor(batch['next_utterance_ids'])
-		gold_prev_id_vectors = LongTensor(batch['prev_utterance_ids'])
+		## Prepare Output (If exists)
+		gold_next_token_embeddings, gold_next_utterance_mask = self.token_encoder.lookup_by_name(batch,
+										name_embed="next_utterance_ids", name_mask="next_utterance_mask")
+		gold_next_token_ids = batch["next_utterance_ids"]
+		gold_prev_token_embeddings, gold_prev_utterance_mask = self.token_encoder.lookup_by_name(batch,
+										name_embed="prev_utterance_ids", name_mask="prev_utterance_mask")
+		gold_prev_token_ids = batch["prev_utterance_ids"]
+
+		# Max utterance length will be the same for next and previous utterance lists as well
 
 		if mode == "train":
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, \
-				   max_utterance_length, gold_next_id_vectors, gold_prev_id_vectors
+				   max_utterance_length, gold_next_utterance_mask, gold_prev_utterance_mask, \
+				   gold_next_token_ids, gold_prev_token_ids, \
+				   gold_next_token_embeddings, gold_prev_token_embeddings
 		else:
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, \
 				   max_utterance_length
