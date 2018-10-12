@@ -19,6 +19,8 @@ logger = logging.getLogger()
 def init_model(args, dataset):
 	data_factroy.set_dataset_arguments(args, dataset)
 	model = model_factory.get_model(args)
+	if args.pretrained_dialogue_embed_path is not None:
+		model.load(pretrained_embed=args.pretrained_dialogue_embed_path)
 	model.set_vocabulary(dataset.vocabulary.vocabulary)
 	return model
 
