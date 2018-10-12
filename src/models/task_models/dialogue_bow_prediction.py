@@ -181,22 +181,53 @@ class DialogueClassifier(AbstractModel):
 		prev_predicted = predicted[1].numpy()
 		next_correct = target[0].numpy()
 		prev_correct = target[1].numpy()
-		correct = 0
+		batch_precision = 0
+		batch_recall = 0
+		batch_f1 = 0
 		total = 0
 		# TODO: Replace by confusion matrix + F1 from sklearn to get all metrics
 		for i in range(next_predicted.shape[0]):
 			predicted_ids = np.where(next_predicted[i] > self.args.threshold)[0]
-			gold_ids = next_correct[i]
-			correct += len(set(gold_ids)&set(predicted_ids))
-			total += len(set(gold_ids))
+			gold_ids = next_correct[i][np.where(next_correct[i] != 0)]
+			if len(gold_ids) == 0:
+				continue
+
+			if len(set(predicted_ids)) == 0:
+				precision = 0
+			else:
+				precision = float(len(set(gold_ids)&set(predicted_ids)))/len(set(predicted_ids))
+			recall = float(len(set(gold_ids) & set(predicted_ids))) / len(set(gold_ids))
+			if precision + recall == 0:
+				f1 = 0
+			else:
+				f1 = (2*precision*recall)/(precision + recall)
+			batch_precision += precision
+			batch_recall += recall
+			batch_f1 += f1
+
 			predicted_ids = np.where(prev_predicted[i] > self.args.threshold)[0]
-			gold_ids = prev_correct[i]
-			correct += len(set(gold_ids) & set(predicted_ids))
-			total += len(set(gold_ids))
-			# precision: Ill Defined when no predicted IDS retrieived
-			# recall = float(len(set(gold_ids)&set(predicted_ids)))/len(set(gold_ids))
+			gold_ids = prev_correct[0][np.where(prev_correct[0] != 0)]
+
+			if len(set(predicted_ids)) == 0:
+				precision = 0
+			else:
+				precision = float(len(set(gold_ids) & set(predicted_ids))) / len(set(predicted_ids))
+			recall = float(len(set(gold_ids) & set(predicted_ids))) / len(set(gold_ids))
+			if precision + recall == 0:
+				f1 = 0
+			else:
+				f1 = (2 * precision * recall) / (precision + recall)
+			batch_precision += precision
+			batch_recall += recall
+			batch_f1 += f1
+
+			total += 1
+
 		metric_update_dict = {}
-		metric_update_dict[self.args.metric[0]] = [correct, total]
+
+		metric_update_dict["precision"] = [batch_precision, 2*total]
+		metric_update_dict["recall"] = [batch_recall, 2 * total]
+		metric_update_dict["f1"] = [batch_f1, 2 * total]
 		return metric_update_dict
 
 	def set_vocabulary(self, vocabulary):

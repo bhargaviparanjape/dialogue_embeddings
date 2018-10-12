@@ -35,6 +35,9 @@ class ELMoEmbedding():
 			mask[i:i + K] = dict['mask']
 		return embeddings, mask
 
+	def lookup_by_name(self, input, name_embed, name_mask):
+		raise NotImplementedError
+
 	@staticmethod
 	def add_args(parser):
 		embedding_layer_parameters = parser.add_argument_group("Embedding layer Parameters")
@@ -67,6 +70,21 @@ class AverageELMoEmbedding():
 			embeddings = self.embeddings[id]
 			batch_embeddings += embeddings
 			batch_embeddings += [np.random.rand(self.args.embed_size).tolist() for i in range(max_num_utterances_batch - len(embeddings))]
+		batch_embedding_tensor = FloatTensor(batch_embeddings)
+		return batch_embedding_tensor, input_mask
+
+	def lookup_by_name(self, input, name_embed, name_mask):
+		conversation_id_list = input[name_embed]
+		input_mask = FloatTensor(input[name_mask])
+		# Generally remains the same
+		max_num_utterances_batch = input['max_num_utterances']
+
+		batch_embeddings = []
+		for x, id in enumerate(conversation_id_list):
+			embeddings = self.embeddings[id]
+			batch_embeddings += embeddings
+			batch_embeddings += [np.random.rand(self.args.embed_size).tolist() for i in
+								 range(max_num_utterances_batch - len(embeddings))]
 		batch_embedding_tensor = FloatTensor(batch_embeddings)
 		return batch_embedding_tensor, input_mask
 
@@ -124,6 +142,13 @@ class GloveEmbeddings():
 		input_token_ids = LongTensor(input["utterance_word_ids"])
 		utterance_embeddings = self.embed_layer(input_token_ids)
 		input_mask = FloatTensor(input['input_mask'])
+		return utterance_embeddings, input_mask
+
+
+	def lookup_by_name(self, input, name_embed, name_mask):
+		input_token_ids = LongTensor(input[name_embed])
+		utterance_embeddings = self.embed_layer(input_token_ids)
+		input_mask = FloatTensor(input[name_mask])
 		return utterance_embeddings, input_mask
 
 

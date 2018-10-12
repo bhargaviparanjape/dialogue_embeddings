@@ -46,7 +46,8 @@ class DialogueBowNetwork(nn.Module):
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
-		## Get BOW Score
+		## Get BOW Score (with replacement)
+		## Get as many scores over vocabuary as there are max_utterance_lengths in the batch
 		next_vocabulary_scores = self.next_bow_scorer(conversation_encoded.squeeze(1))
 		prev_vocab_scores = self.prev_bow_scorer(conversation_encoded.squeeze(1))
 

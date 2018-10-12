@@ -96,6 +96,16 @@ class MultiTaskAverageCounter(object):
 			metric_values.append(item["metric"].avg)
 		return np.mean(metric_values)
 
+	def validation_metric(self, valid_metric):
+		if len(valid_metric) == 0:
+			return self.average()
+		else:
+			metric_values = []
+			for idx, item in enumerate(self.metrics):
+				if item["name"] in valid_metric:
+					metric_values.append(item["metric"].avg)
+			return np.mean(metric_values)
+		return None
 
 class Timer(object):
     """Computes elapsed time."""
