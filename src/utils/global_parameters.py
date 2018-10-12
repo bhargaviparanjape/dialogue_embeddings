@@ -27,6 +27,7 @@ def add_args(parser):
 	files.add_argument("--model-path", type=str, default=None)
 	files.add_argument('--model-dir', type=str, default=None)
 	files.add_argument("--pretrained-model-path", type=str, default=None)
+	files.add_argument("--pretrained-dialogue-embed-path", type=str, default=None)
 
 	# Saving + loading
 	save_load = parser.add_argument_group('Saving/Loading')

@@ -25,7 +25,7 @@ class DialogueBowNetwork(nn.Module):
 		self.args = args
 
 		## Define class network
-		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size,
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size[0], "num_layers" : args.output_num_layers[0],
 				 "output_size": args.output_size}
 		self.next_utterance_decoder = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 		self.prev_utterance_decoder = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)

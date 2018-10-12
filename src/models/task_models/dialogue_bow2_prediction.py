@@ -25,7 +25,7 @@ class DialogueBowNetwork(nn.Module):
 		self.args = args
 
 		## Define class network
-		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size,
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size[0], "num_layers" : args.output_num_layers[0],
 				 "output_size": args.output_size}
 		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
@@ -176,7 +176,7 @@ class DialogueClassifier(AbstractModel):
 		prev_correct = target[1]*mask.long()
 		total = mask.sum().data.numpy() + mask.sum().data.numpy()
 		correct = 0
-		for i in range(predicted[0].shape[0]):
+		for i in range(next_predicted.shape[0]):
 			predicted_set = set([j for j in next_predicted.numpy()[i].tolist() if j != 0])
 			gold_set = set([j for j in next_correct.numpy()[i].tolist() if j != 0])
 			correct += len(predicted_set & gold_set)

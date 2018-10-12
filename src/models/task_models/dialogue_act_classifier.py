@@ -26,7 +26,7 @@ class DialogueActClassifierNetwork(nn.Module):
 
 		## Define class network
 		## output labels size
-		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size,
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size[0], "num_layers" : args.output_num_layers[0],
 							 "output_size": args.output_size}
 		self.classifier = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 
@@ -60,8 +60,10 @@ class DialogueActClassifierNetwork(nn.Module):
 	def add_args(parser):
 		model_parameters = parser.add_argument_group("Model Parameters")
 		model_parameters.add_argument("--output-size", type=int)
-		model_parameters.add_argument("--output-hidden-size", type=int)
+		model_parameters.add_argument("--output-hidden-size", type=int, action="append")
 		model_parameters.add_argument("--output-input-size", type=int)
+		model_parameters.add_argument("--output-num-layers", type=int , action="append")
+
 
 #################################################
 ############### NETWORK WRAPPER #################
