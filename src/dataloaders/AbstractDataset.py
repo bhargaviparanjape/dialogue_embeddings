@@ -8,6 +8,7 @@ class AbstractDataset(data.Dataset):
     __metaclass__ = ABCMeta
 
     def __init__(self):
+        self.name = ""
         self.total_length = 0
         self.vocabulary = Vocabulary()
         self.train_dataset = []
@@ -35,3 +36,5 @@ class AbstractDataset(data.Dataset):
 
         return aggregated_dataset
 
+    def get_full_dataset(self):
+        return self.train_dataset + self.valid_dataset + self.test_dataset

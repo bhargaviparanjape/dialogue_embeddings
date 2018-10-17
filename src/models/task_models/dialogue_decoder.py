@@ -36,17 +36,21 @@ class DialogueBowNetwork(nn.Module):
 		pass
 
 	def forward(self, *input):
-		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, max_utterance_length,
-		next_utterance_mask, prev_utterance_mask, next_utterance_word_ids,
-		prev_utterance_word_ids, next_utterance_embeddings, prev_utterance_embeddings] = input
+		[token_embeddings, input_mask_variable, conversation_mask,
+		max_num_utterances_batch, max_utterance_length,
+		decoder_input,
+		next_utterance_mask, prev_utterance_mask,
+		next_utterance_word_ids, prev_utterance_word_ids,
+		next_utterance_embeddings, prev_utterance_embeddings] = input
 
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
-		## Get BOW Score
-		next_vocabulary_scores = self.next_utterance_decoder(conversation_encoded.squeeze(1), next_utterance_embeddings, next_utterance_mask)
-		prev_vocab_scores = self.prev_utterance_decoder(conversation_encoded.squeeze(1), prev_utterance_embeddings, prev_utterance_mask)
+		## Get Decoder Scores (Batch size * Max Sequence Length * Vocab size) [this lookup for start varialbe can only be done for Glove presently]
+		next_utterance_embeddings = decoder_input
+		next_vocabulary_scores = self.next_utterance_decoder(decoder_input, next_utterance_embeddings, conversation_encoded.squeeze(1), next_utterance_mask)
+		prev_vocab_scores = self.prev_utterance_decoder(prev_utterance_embeddings, conversation_encoded.squeeze(1), prev_utterance_mask)
 
 		## Computing custom masked cross entropy
 		next_loss = self.masked_loglikelihood(next_vocabulary_scores, next_utterance_word_ids, next_utterance_mask)
@@ -208,6 +212,9 @@ class DialogueClassifier(AbstractModel):
 		conversation_lengths = batch['conversation_lengths']
 		conversation_mask = variable(FloatTensor(batch['conversation_mask']))
 
+		## For decoder prepare initial state
+		start_token = self.vocabulary.get
+
 		## Prepare Output (If exists)
 		gold_next_token_embeddings, gold_next_utterance_mask = self.token_encoder.lookup_by_name(batch,
 										name_embed="next_utterance_ids", name_mask="next_utterance_mask")
@@ -217,15 +224,18 @@ class DialogueClassifier(AbstractModel):
 		gold_prev_token_ids = batch["prev_utterance_ids"]
 
 		# Max utterance length will be the same for next and previous utterance lists as well
-
+		# Needs access to the token encoder itself
 		if mode == "train":
-			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, \
-				   max_utterance_length, gold_next_utterance_mask, gold_prev_utterance_mask, \
+			return batch_size, token_embeddings, input_mask_variable, conversation_mask, \
+				   max_num_utterances_batch, max_utterance_length, \
+				   self.token_encoder, \
+				   gold_next_utterance_mask, gold_prev_utterance_mask, \
 				   gold_next_token_ids, gold_prev_token_ids, \
 				   gold_next_token_embeddings, gold_prev_token_embeddings
 		else:
-			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, \
-				   max_utterance_length
+			return batch_size, token_embeddings, input_mask_variable, conversation_mask, \
+				   max_num_utterances_batch, max_utterance_length, \
+				   self.token_encoder
 
 
 	def init_optimizer(self):

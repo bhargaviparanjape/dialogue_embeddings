@@ -1,8 +1,9 @@
+import random
+
 from datasets.swda import swda
 from src.dataloaders.AbstractDataset import AbstractDataset
 from src.dataloaders.factory import RegisterDataset
 from src.utils.vocabulary import Vocabulary
-import random
 
 DAMSL_TAGSET = {'%':0,'+':1,'^2':2,'^g':3,'^h':4,'^q':5,'aa':6,'aap_am':7,'ad':8,'ar':9,'arp_nd':10,'b':11,'b^m':12
 	,'ba':13,'bd':14,'bf':15,'bh':16,'bk':17,'br':18,'fa':19,'fc':20,'fo_o_fw_"_by_bc':21,'fp':22,'ft':23,'h':24
@@ -36,16 +37,18 @@ class SwitchBoard(AbstractDataset):
 
 	def __init__(self, args, dataset_path):
 		corpus = swda.CorpusReader(dataset_path)
+		self.name = type(self).__name__
 		self.total_length = 0
 		self.vocabulary = Vocabulary()
 		self.label_set_size = len(DAMSL_TAGSET)
 
 		dataset = []
 		for transcript in corpus.iter_transcripts(display_progress=True):
+			self.total_length += 1
 			if args.truncate_dataset and self.total_length > 25:
 				break
 			dataset.append(SwitchBoard.Dialogue(transcript))
-			self.total_length += 1
+
 
 		shuffled_dataset = random.shuffle(dataset)
 
@@ -70,4 +73,3 @@ class SwitchBoard(AbstractDataset):
 
 		## create character vocabulary
 		self.vocabulary.get_character_vocab()
-
