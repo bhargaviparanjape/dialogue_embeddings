@@ -42,6 +42,23 @@ def get_dataset(args, logger):
 
 	return aggregated_dataset
 
+
+def get_dataset_list(args, logger):
+	datasets = args.dataset
+	dataset_paths = args.dataset_path
+	aggregated_dataset_list = []
+	for idx, dataset in enumerate(datasets):
+		if dataset not in DATASET_REGISTRY:
+			raise Exception(
+				NO_DATASET_ERR.format(dataset, DATASET_REGISTRY.keys()))
+
+		if dataset in DATASET_REGISTRY:
+			loaded_dataset = DATASET_REGISTRY[dataset](args, dataset_paths[idx])
+			aggregated_dataset_list.append(loaded_dataset)
+
+	return aggregated_dataset_list
+
+
 def get_batches(args, dataset):
 	if args.batch_function not in BATCHER_REGISTRY:
 		raise Exception(

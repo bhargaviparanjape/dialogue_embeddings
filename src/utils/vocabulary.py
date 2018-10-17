@@ -99,7 +99,7 @@ class Vocabulary(object):
 
 	def __add__(self, other):
 		## keys in both vocabularies
-		## TODO: NO support for limiting the vocabulary of joint datasets using counter
+		## TODO: NO support for limiting the vocabulary of multiple datasets using counter
 
 		unique_words = list(set(list(self.vocabulary.keys()) + list(other.vocabulary.keys())) - \
 					   set([self.pad_token, self.unk, self.sos, self.eos]))

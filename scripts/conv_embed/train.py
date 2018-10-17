@@ -8,10 +8,8 @@ sys.path.append(dirname(dirname(dirname(realpath(__file__)))))
 from src.utils import global_parameters
 from src.learn import config as train_config
 from src.models import config as model_config
-
 from src.dataloaders import factory as data_factroy
 from src.models import factory as model_factory
-
 from src.learn import train
 
 logger = logging.getLogger()

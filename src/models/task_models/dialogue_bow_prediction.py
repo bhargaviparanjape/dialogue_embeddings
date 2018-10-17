@@ -191,7 +191,7 @@ class DialogueClassifier(AbstractModel):
 		total = 0
 		# TODO: Replace by confusion matrix + F1 from sklearn to get all metrics
 		for i in range(next_predicted.shape[0]):
-			predicted_ids = np.where(next_predicted[i] > self.args.threshold)[0]
+			predicted_ids = np.where(next_predicted[i] > self.args.threshold)[0] # remove start, end, pad token
 			gold_ids = next_correct[i][np.where(next_correct[i] != 0)]
 			if len(gold_ids) == 0:
 				continue
