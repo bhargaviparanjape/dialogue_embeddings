@@ -51,8 +51,12 @@ class BiLSTMEncoder(nn.Module):
 		outputs, (hidden, cell) = self.lstm(rnn_input)
 		outputs_unpacked, _ = pad_packed_sequence(outputs, batch_first=True)
 		outputs_unpacked = outputs_unpacked[idx_unsort]
+		outputs_unpacked_directions = outputs_unpacked.view(outputs_unpacked.shape[0], outputs_unpacked.shape[1],
+															2, self.hidden_size)
 		## hidden and cell are still sorted ordered
-		return outputs_unpacked, hidden
+		if outputs_unpacked.shape[1] != x.shape[1]:
+			print("Something up!")
+		return outputs_unpacked_directions, hidden
 
 	# @staticmethod
 	# def add_args(parser):

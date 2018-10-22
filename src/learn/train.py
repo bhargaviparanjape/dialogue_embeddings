@@ -7,6 +7,10 @@ from src.utils.utility_functions import AverageMeter,Timer, MultiTaskAverageCoun
 from random import shuffle
 logger = logging.getLogger(__name__)
 
+
+def train_epochs_multiplex(args, dataset, model):
+	pass
+
 def train_epochs(args, dataset, model):
 
 	train_batches, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
@@ -55,6 +59,7 @@ def train_epochs(args, dataset, model):
 
 		# Recreate training batches using shuffle
 		logger.info("Creating train batches for epoch {0}".format(epoch+1))
+		train_batches,_,_ = dataloader_factory.get_batches(args, dataset)
 		shuffle(train_batches)
 
 

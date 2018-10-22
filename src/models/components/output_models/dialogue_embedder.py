@@ -41,7 +41,7 @@ class DialogueEmbedder(nn.Module):
 
 		# Reshape conversation back to batch
 		conversation_encoded_flattened = conversation_encoded.view(conversation_batch_size * max_num_utterances_batch,
-																   -1, conversation_encoded.shape[2])
+																   conversation_encoded.shape[2], conversation_encoded.shape[3])
 		return conversation_encoded_flattened
 
 

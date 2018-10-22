@@ -7,6 +7,17 @@ TRAIN_ONLY_ERR_MSG = "{} only supported for train dataset! Instead saw {}"
 class AbstractDataset(data.Dataset):
     __metaclass__ = ABCMeta
 
+    class Utterance:
+        ## minimum elements all datasets must have; id, length, tokens
+        def __init__(self, tokens):
+            # Initialization for dummy utterance
+            self.id = None
+            self.label = 0
+            self.speaker = None
+            # TODO: clean text before processing
+            self.tokens = tokens
+            self.length = len(self.tokens)
+
     def __init__(self):
         self.name = ""
         self.total_length = 0

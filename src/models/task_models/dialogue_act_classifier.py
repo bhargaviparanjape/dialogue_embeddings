@@ -238,7 +238,7 @@ class DialogueActClassifier(AbstractModel):
 		# TODO: Handle code for replaceing new paramters with older ones
 		# Not handling fixed embedding layer
 		model = DialogueActClassifier(args)
-		model.network.load_state_dict(state_dict)
+		model.network.load_state_dict(state_dict, strict=False)
 		model.set_vocabulary(word_dict)
 		return model
 
