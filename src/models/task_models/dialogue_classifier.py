@@ -514,7 +514,7 @@ class DialogueClassifier(AbstractModel):
 		self.vocabulary = vocabulary
 		## Embedding layer initialization depends upon vocabulary
 		if hasattr(self.token_encoder, "load_embeddings"):
-			self.token_encoder.load_embeddings(self.vocabulary)
+			self.token_encoder.load_embeddings(self.vocabulary.vocabulary)
 
 	@staticmethod
 	def add_args(parser):

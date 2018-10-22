@@ -22,7 +22,7 @@ class StackedBRNN(nn.Module):
 	def __init__(self, args, **kwargs):
 		super(StackedBRNN, self).__init__()
 		# Always pad input
-		self.padding = True
+		self.padding = False
 		self.dropout_output = False
 		self.dropout_rate = args.dropout
 		self.input_size = args.embed_size
@@ -79,9 +79,13 @@ class StackedBRNN(nn.Module):
 			rnn_output = self.rnns[i](rnn_input)[0]
 			outputs.append(rnn_output)
 
+		for i, o in enumerate(outputs[1:], 1):
+			outputs[i] = o.view(o.shape[0], o.shape[1], 2, self.hidden_size)
+
+
 		# Concat hidden layers
 		if self.concat_layers:
-			output = torch.cat(outputs[1:], 2)
+			output = torch.cat(outputs[1:], 3)
 		else:
 			output = outputs[-1]
 
@@ -133,11 +137,13 @@ class StackedBRNN(nn.Module):
 
 		# Unpack everything
 		for i, o in enumerate(outputs[1:], 1):
-			outputs[i] = nn.utils.rnn.pad_packed_sequence(o)[0]
+			outputs_unpacked = nn.utils.rnn.pad_packed_sequence(o)[0]
+			outputs[i] = outputs_unpacked.view(outputs_unpacked.shape[0], outputs_unpacked.shape[1],
+															2, self.hidden_size)
 
 		# Concat hidden layers or take final
 		if self.concat_layers:
-			output = torch.cat(outputs[1:], 2)
+			output = torch.cat(outputs[1:], 3)
 		else:
 			output = outputs[-1]
 
