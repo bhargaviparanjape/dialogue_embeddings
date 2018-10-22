@@ -14,6 +14,7 @@ import src.models.components.conversation_encoders.bilstm
 import src.models.components.output_models.dialogue_embedder
 import src.models.components.output_models.bilinear_scorer
 import src.models.components.output_models.output_layers
+import src.models.components.output_models.lstm_decoder
 
 
 

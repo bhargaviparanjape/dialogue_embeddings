@@ -57,6 +57,13 @@ class Vocabulary(object):
 	def get_indices(self, words):
 		return [self.get_index(word) for word in words]
 
+	def get_token(self, id):
+		# No protection against KeyError, code has to fail if key not found
+		return self.id_to_vocab[id]
+
+	def get_tokens(self, indices):
+		return [self.get_token(id) for id in indices]
+
 	def get_length(self):
 		return len(self.vocabulary)
 

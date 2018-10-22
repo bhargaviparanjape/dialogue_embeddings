@@ -30,8 +30,6 @@ class DialogueBowNetwork(nn.Module):
 		self.next_utterance_decoder = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 		self.prev_utterance_decoder = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 
-		## Define loss function: Custom masked entropy
-
 	def masked_loglikelihood(self, scores, target, mask):
 		pass
 
@@ -99,37 +97,6 @@ class DialogueClassifier(AbstractModel):
 
 		## Set embedding layer parameters trainable or tunable
 
-	def cuda(self):
-		self.network = self.network.cuda()
-
-	def update(self, inputs):
-		## update based on inputs
-		"""Forward a batch of examples; step the optimizer to update weights."""
-		if not self.optimizer:
-			raise RuntimeError('No optimizer set.')
-
-		# Train mode
-		self.network.train()
-
-		# Run forward
-		batch_size, *inputs = self.vectorize(inputs, mode = "train")
-		loss = self.network(*inputs)
-
-		# Update parameters
-		self.optimizer.zero_grad()
-		loss.backward()
-		torch.nn.utils.clip_grad_norm_(self.network.parameters(), self.args.clip_threshold)
-		self.optimizer.step()
-		self.updates += 1
-
-		# Return loss and batch size [to average over]
-		if self.args.use_cuda:
-			loss_value = loss.data.cpu().item()
-		else:
-			loss_value = loss.data.item()
-		return loss_value, batch_size
-
-
 	def checkpoint(self, file_path, epoch_no):
 		raise NotImplementedError
 
@@ -194,26 +161,24 @@ class DialogueClassifier(AbstractModel):
 			self.token_encoder.load_embeddings(self.vocabulary)
 
 	def vectorize(self, batch, mode = "train"):
-		## TODO: Get single example, abstract out batchification
+
 		batch_size = int(len(batch['utterance_list']) / batch['max_num_utterances'])
 		max_num_utterances_batch = batch['max_num_utterances']
 		max_utterance_length = batch['max_utterance_length']
 
 		## Prepare Token Embeddings
+		# TODO: Batch has dummy utternances that need to be specifically handled incase of average elmo
 		token_embeddings, token_mask = self.token_encoder.lookup(batch)
 		if self.args.use_cuda:
 			token_embeddings = token_embeddings.cuda()
 		input_mask_variable = variable(token_mask)
 
-		## Prepare Utterance Encoder
-
-		## Prepare Conversation Encoder
-		## TODO: Abstraction similar to token embeddings
 		conversation_lengths = batch['conversation_lengths']
 		conversation_mask = variable(FloatTensor(batch['conversation_mask']))
 
 		## For decoder prepare initial state
-		start_token = self.vocabulary.get
+		conversation_ids = batch['utterance_word_ids']
+		start_token = self.vocabulary.get_tokens(conversation_ids[0])
 
 		## Prepare Output (If exists)
 		gold_next_token_embeddings, gold_next_utterance_mask = self.token_encoder.lookup_by_name(batch,
@@ -237,41 +202,9 @@ class DialogueClassifier(AbstractModel):
 				   max_num_utterances_batch, max_utterance_length, \
 				   self.token_encoder
 
-
-	def init_optimizer(self):
-		parameters = [p for p in self.network.parameters() if p.requires_grad]
-		self.optimizer = select_optimizer(self.args, parameters)
-
-
-	def parallelize(self):
-		"""Use data parallel to copy the model across several gpus.
-		This will take all gpus visible with CUDA_VISIBLE_DEVICES.
-		"""
-		self.parallel = True
-		self.network = torch.nn.DataParallel(self.network)
-
-
 	@staticmethod
 	def add_args(parser):
 		pass
-
-	def save(self):
-		# model parameters; metrics;
-		if self.args.parallel:
-			network = self.network.module
-		else:
-			network = self.network
-		state_dict = copy.copy(network.state_dict())
-		# Pop layers if required
-		params = {
-			'word_dict': self.vocabulary,
-			'args': self.args,
-			'state_dict': state_dict
-		}
-		try:
-			torch.save(params, os.path.join(self.args.model_dir, self.args.model_path))
-		except BaseException:
-			logger.warning('WARN: Saving failed... continuing anyway.')
 
 	@staticmethod
 	def load(filename, new_args=None, normalize=True):

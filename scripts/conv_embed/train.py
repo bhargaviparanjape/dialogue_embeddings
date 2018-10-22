@@ -19,7 +19,7 @@ def init_model(args, dataset):
 	model = model_factory.get_model(args)
 	if args.pretrained_dialogue_embed_path is not None:
 		model.load(args.pretrained_dialogue_embed_path)
-	model.set_vocabulary(dataset.vocabulary.vocabulary)
+	model.set_vocabulary(dataset.vocabulary)
 	return model
 
 
