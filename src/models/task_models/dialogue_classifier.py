@@ -17,14 +17,15 @@ logger = logging.getLogger(__name__)
 #########################################
 ############### NETWORK #################
 #########################################
-@RegisterModel('dl_classifier_network')
+@RegisterModel('dl_classifier_network1')
 class DialogueClassifierNetwork(nn.Module):
 	def __init__(self, args):
 		super(DialogueClassifierNetwork, self).__init__()
 		self.dialogue_embedder = DialogueEmbedder(args)
 
 		## Define class networkict_
-		dict_ = {"input_size": args.output_input_size , "output_size" : 1}
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size, "output_size": 1,
+				 "num_layers": args.output_num_layers[0], }
 		self.next_dl_classifier = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 		self.prev_dl_classifier = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 
@@ -96,8 +97,8 @@ class DialogueClassifierNetwork(nn.Module):
 #################################################
 ############### NETWORK WRAPPER #################
 #################################################
-@RegisterModel('dl_classifier')
-class DialogueClassifier(AbstractModel):
+@RegisterModel('dl_classifier1')
+class DialogueClassifier1(AbstractModel):
 	def __init__(self, args):
 
 		## Initialize environment
@@ -288,3 +289,233 @@ class DialogueClassifier(AbstractModel):
 		model.network.load_state_dict(state_dict)
 		model.set_vocabulary(word_dict)
 		return model
+
+#########################################
+############### NETWORK #################
+#########################################
+@RegisterModel('dl_classifier_network')
+class DialogueClassifierNetwork(nn.Module):
+	def __init__(self, args):
+		super(DialogueClassifierNetwork, self).__init__()
+		self.args = args
+		self.dialogue_embedder = DialogueEmbedder(args)
+
+		## Define class networkict_
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size, "output_size": 1,
+				 "num_layers": args.output_num_layers[0], }
+		self.current_dl_trasnformer1 = model_factory.get_model_by_name(args.output_layer[0], args, kwargs=dict_)
+		self.current_dl_trasnformer2 = model_factory.get_model_by_name(args.output_layer[0], args, kwargs=dict_)
+		dict_ = {"input_size": args.embed_size, "hidden_size": args.output_hidden_size, "output_size": 1,
+				 "num_layers": args.output_num_layers[0], }
+		self.next_dl_trasnformer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
+		self.prev_dl_trasnformer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
+
+
+	def forward(self, *input):
+		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch] = input
+		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
+
+		if self.args.fixed_utterance_encoder:
+			utterance_encodings = token_embeddings
+		else:
+			utterance_encodings = self.dialogue_embedder.utterance_encoder(token_embeddings, input_mask_variable)
+		utterance_encodings = utterance_encodings.view(conversation_batch_size, max_num_utterances_batch, utterance_encodings.shape[1])
+		utterance_encodings_next = utterance_encodings[:, 1:, :].contiguous()
+		utterance_encodings_prev = utterance_encodings[:, 0:-1, :].contiguous()
+
+		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+													   max_num_utterances_batch])
+
+		conversation_encoded_forward = conversation_encoded[:,0,:]
+		conversation_encoded_backward = conversation_encoded[:, 0, :]
+
+		conversation_encoded_forward_reassembled = conversation_encoded_forward.view(conversation_batch_size,
+														max_num_utterances_batch, conversation_encoded.shape[2])
+		conversation_encoded_backward_reassembled = conversation_encoded_backward.view(conversation_batch_size,
+																					 max_num_utterances_batch,
+																					 conversation_encoded.shape[2])
+
+		# Shift to prepare next and previous utterence encodings
+		conversation_encoded_current1 = conversation_encoded_forward_reassembled[:, 0:-1, :].contiguous()
+		conversation_encoded_next = conversation_encoded_forward_reassembled[:, 1:, :].contiguous()
+		conversation_mask_next = conversation_mask[:, 1:].contiguous()
+
+		conversation_encoded_current2 = conversation_encoded_backward_reassembled[:, 1:, :].contiguous()
+		conversation_encoded_previous = conversation_encoded_backward_reassembled[:, 0:-1, :].contiguous()
+		# conversation_mask_previous = conversation_mask[:, 0:-1].contiguous().contiguous()
+
+		# Gold Labels
+		gold_indices = variable(LongTensor(range(conversation_encoded_current1.shape[1]))).view(-1, 1).repeat(conversation_batch_size, 1)
+
+		# Linear transformation of both utterance representations
+		transformed_current1 = self.current_dl_trasnformer1(conversation_encoded_current1)
+		transformed_current2 = self.current_dl_trasnformer2(conversation_encoded_current2)
+
+
+		# transformed_next = self.next_dl_trasnformer(conversation_encoded_next)
+		# transformed_prev = self.prev_dl_trasnformer(conversation_encoded_previous)
+		transformed_next = self.next_dl_trasnformer(utterance_encodings_next)
+		transformed_prev = self.prev_dl_trasnformer(utterance_encodings_prev)
+
+		# Output layer: Generate Scores for next and prev utterances
+		next_logits = torch.bmm(transformed_current1, transformed_next.transpose(2, 1))
+		prev_logits = torch.bmm(transformed_current2, transformed_prev.transpose(2, 1))
+
+		# Computing custom masked cross entropy
+		next_log_probs = F.log_softmax(next_logits, dim=2)
+		prev_log_probs = F.log_softmax(prev_logits, dim=2)
+
+		losses_next = -torch.gather(next_log_probs.view(next_log_probs.shape[0]*next_log_probs.shape[1], -1), dim=1, index=gold_indices)
+		losses_prev = -torch.gather(prev_log_probs.view(prev_log_probs.shape[0]*prev_log_probs.shape[1], -1), dim=1, index=gold_indices)
+
+		losses_masked = (losses_next.squeeze(1) * conversation_mask_next.view(conversation_mask_next.shape[0]*conversation_mask_next.shape[1]))\
+						+ (losses_prev.squeeze(1) * conversation_mask_next.view(conversation_mask_next.shape[0]*conversation_mask_next.shape[1]))
+
+		loss = losses_masked.sum() / (2*conversation_mask_next.float().sum())
+
+		return loss
+
+	def evaluate(self, *input):
+		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch] = input
+
+		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
+
+		if self.args.fixed_utterance_encoder:
+			utterance_encodings = token_embeddings
+		else:
+			utterance_encodings = self.dialogue_embedder.utterance_encoder(token_embeddings, input_mask_variable)
+		utterance_encodings = utterance_encodings.view(conversation_batch_size, max_num_utterances_batch, utterance_encodings.shape[1])
+		utterance_encodings_next = utterance_encodings[:, 1:, :].contiguous()
+		utterance_encodings_prev = utterance_encodings[:, 0:-1, :].contiguous()
+
+		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+													   max_num_utterances_batch])
+
+		conversation_encoded_forward = conversation_encoded[:, 0, :]
+		conversation_encoded_backward = conversation_encoded[:, 0, :]
+
+		conversation_encoded_forward_reassembled = conversation_encoded_forward.view(conversation_batch_size,
+																					 max_num_utterances_batch,
+																					 conversation_encoded.shape[2])
+		conversation_encoded_backward_reassembled = conversation_encoded_backward.view(conversation_batch_size,
+																					   max_num_utterances_batch,
+																					   conversation_encoded.shape[2])
+
+		# Shift to prepare next and previous utterence encodings
+		conversation_encoded_current1 = conversation_encoded_forward_reassembled[:, 0:-1, :]
+		conversation_encoded_next = conversation_encoded_forward_reassembled[:, 1:, :]
+		conversation_mask_next = conversation_mask[:, 1:].contiguous()
+
+		conversation_encoded_current2 = conversation_encoded_backward_reassembled[:, 1:, :]
+		conversation_encoded_previous = conversation_encoded_backward_reassembled[:, 0:-1, :]
+		conversation_mask_previous = conversation_mask[:, 0:-1].contiguous()
+
+		# Linear transformation of both utterance representations
+		transformed_current1 = self.current_dl_trasnformer1(conversation_encoded_current1)
+		transformed_current2 = self.current_dl_trasnformer2(conversation_encoded_current2)
+
+		# transformed_next = self.next_dl_trasnformer(conversation_encoded_next)
+		# transformed_prev = self.prev_dl_trasnformer(conversation_encoded_previous)
+		transformed_next = self.next_dl_trasnformer(utterance_encodings_next)
+		transformed_prev = self.prev_dl_trasnformer(utterance_encodings_prev)
+
+		# Output layer: Generate Scores for next and prev utterances
+		next_logits = torch.bmm(transformed_current1, transformed_next.transpose(2, 1))
+		prev_logits = torch.bmm(transformed_current2, transformed_prev.transpose(2, 1))
+
+		next_predictions = torch.sort(next_logits, dim=2, descending=True)[1][:, 0]
+		prev_predictions = torch.sort(prev_logits, dim=2, descending=True)[1][:, 0]
+
+		return next_predictions, prev_predictions
+
+#################################################
+############### NETWORK WRAPPER #################
+#################################################
+@RegisterModel('dl_classifier')
+class DialogueClassifier(AbstractModel):
+	def __init__(self, args):
+
+		## Initialize environment
+		self.args = args
+		self.updates = 0
+
+		## If token encodings are not computed on the fly using character CNN based models but are obtained from a pretrained model
+		if args.fixed_token_encoder:
+			self.token_encoder = model_factory.get_embeddings(args.token_encoder, args)
+		self.network = model_factory.get_model_by_name(args.network, args)
+
+	def vectorize(self, batch, mode="train"):
+		batch_size = int(len(batch['utterance_list']) / batch['max_num_utterances'])
+		max_num_utterances_batch = batch['max_num_utterances']
+
+		# TODO: Batch has dummy utternances that need to be specifically handled incase of average elmo
+		token_embeddings, token_mask = self.token_encoder.lookup(batch)
+
+		if self.args.use_cuda:
+			token_embeddings = token_embeddings.cuda()
+		input_mask_variable = variable(token_mask)
+
+		conversation_lengths = batch['conversation_lengths']
+		conversation_mask = variable(FloatTensor(batch['conversation_mask']))
+
+		if mode == "train":
+			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch
+		else:
+			return batch_size, token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch
+
+	def predict(self, inputs):
+		# Eval mode
+		self.network.eval()
+
+		# Run forward
+		batch_size, *inputs = self.vectorize(inputs, mode = "test")
+		scores_next, scores_prev = self.network.evaluate(*inputs)
+
+		# Convert to CPU
+		if self.args.use_cuda:
+			scores_next = scores_next.data.cpu()
+			scores_prev = scores_prev.data.cpu()
+			input_mask = inputs[2].data.cpu()
+		else:
+			scores_next = scores_next.data
+			scores_prev = scores_prev.data
+			input_mask = inputs[2].data
+
+		# Mask inputs
+		return [scores_next, scores_prev], input_mask
+
+
+	def target(self, inputs):
+		batch_size, *inputs = self.vectorize(inputs, mode="train")
+		# Convert to CPU
+		if self.args.use_cuda:
+			input_mask = inputs[2].data.cpu()
+		else:
+			input_mask = inputs[2].data
+		return None, input_mask
+
+	def evaluate_metrics(self, predicted, target, mask, mode = "dev"):
+		# Named Metric List
+		batch_size = mask.shape[0]
+		next_mask = mask[:, 0:-1].contiguous().view(-1,1).long()
+		next_predicted = predicted[0].contiguous().view(-1,1)
+		prev_predicted = predicted[1].contiguous().view(-1,1)
+		correct = torch.LongTensor(range(predicted[0].shape[1])).view(-1, 1).repeat(batch_size, 1)
+		next_predictions_binary = (next_predicted == correct).long()*next_mask
+		prev_predictions_binary = (prev_predicted == correct).long()*next_mask
+		prev_predictions_binary[prev_predictions_binary == 0] = 2
+		correct = ((next_predictions_binary == prev_predictions_binary).long()*next_mask.long()).sum().numpy()
+		total = next_mask.sum().data.numpy()
+		metric_update_dict = {}
+		metric_update_dict[self.args.metric[0]] = [correct, total]
+		return metric_update_dict
+
+	def set_vocabulary(self, vocabulary):
+		self.vocabulary = vocabulary
+		## Embedding layer initialization depends upon vocabulary
+		if hasattr(self.token_encoder, "load_embeddings"):
+			self.token_encoder.load_embeddings(self.vocabulary)
+
+	@staticmethod
+	def add_args(parser):
+		pass

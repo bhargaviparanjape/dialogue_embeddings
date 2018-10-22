@@ -2,7 +2,7 @@ from collections import defaultdict
 from src.utils.global_parameters import MAX_VOCAB_LENGTH
 
 class Vocabulary(object):
-	def __init__(self, pad_token='<pad>', unk='<unk>', sos='<sos>', eos='<eos>'):
+	def __init__(self, pad_token='<pad>', unk='<unk>', sos='<sos>', eos='<eos>', soc='<soc>', eoc='<eoc>'):
 
 		self.vocabulary = dict()
 		self.id_to_vocab = dict()
@@ -10,15 +10,23 @@ class Vocabulary(object):
 		self.unk = unk
 		self.sos = sos
 		self.eos = eos
+		self.soc = soc
+		self.eoc = eoc
+		self.std_tokens = [self.sos, self.eos, self.pad_token, self.unk, self.soc, self.eoc]
+
 		self.vocabulary[pad_token] = 0
 		self.vocabulary[unk] = 1
 		self.vocabulary[sos] = 2
 		self.vocabulary[eos] = 3
+		self.vocabulary[soc] = 4
+		self.vocabulary[eoc] = 5
 
 		self.id_to_vocab[0] = pad_token
 		self.id_to_vocab[1] = unk
 		self.id_to_vocab[2] = sos
 		self.id_to_vocab[3] = eos
+		self.id_to_vocab[4] = soc
+		self.id_to_vocab[5] = eoc
 
 		self.nertag_to_id = dict()
 		self.postag_to_id = dict()
@@ -74,14 +82,22 @@ class Vocabulary(object):
 		self.vocabulary[self.unk] = 1
 		self.vocabulary[self.sos] = 2
 		self.vocabulary[self.eos] = 3
+		self.vocabulary[self.soc] = 4
+		self.vocabulary[self.eoc] = 5
+
 
 		self.id_to_vocab[0] = self.pad_token
 		self.id_to_vocab[1] = self.unk
 		self.id_to_vocab[2] = self.sos
 		self.id_to_vocab[3] = self.eos
+		self.id_to_vocab[4] = self.soc
+		self.id_to_vocab[5] = self.eoc
+		# TODO: Logic is wrong, even the major tokens are gettinf replaced
 		for id, item in enumerate(vocabulary[:MAX_VOCAB_LENGTH]):
-			self.vocabulary[item[0]] = id + 4
-			self.id_to_vocab[id + 4] = item[0]
+			if item[0] in self.std_tokens:
+				continue
+			self.vocabulary[item[0]] = id + 6
+			self.id_to_vocab[id + 6] = item[0]
 
 
 	def get_word(self, index):
@@ -102,7 +118,7 @@ class Vocabulary(object):
 		## TODO: NO support for limiting the vocabulary of multiple datasets using counter
 
 		unique_words = list(set(list(self.vocabulary.keys()) + list(other.vocabulary.keys())) - \
-					   set([self.pad_token, self.unk, self.sos, self.eos]))
+					   set(self.std_tokens))
 		unique_characters = list(set(list(self.char_to_id.keys()) + list(other.char_to_id.keys())))
 		unique_nertag = list(set(list(self.nertag_to_id.keys()) + list(other.nertag_to_id.keys())))
 		unique_postag = list(set(list(self.postag_to_id.keys()) + list(other.postag_to_id.keys())))
@@ -120,15 +136,19 @@ class Vocabulary(object):
 		aggregated_vocab.vocabulary[aggregated_vocab.unk] = 1
 		aggregated_vocab.vocabulary[aggregated_vocab.sos] = 2
 		aggregated_vocab.vocabulary[aggregated_vocab.eos] = 3
+		aggregated_vocab.vocabulary[aggregated_vocab.soc] = 4
+		aggregated_vocab.vocabulary[aggregated_vocab.eoc] = 5
 
 		aggregated_vocab.id_to_vocab[0] = aggregated_vocab.pad_token
 		aggregated_vocab.id_to_vocab[1] = aggregated_vocab.unk
 		aggregated_vocab.id_to_vocab[2] = aggregated_vocab.sos
 		aggregated_vocab.id_to_vocab[3] = aggregated_vocab.eos
+		aggregated_vocab.id_to_vocab[4] = aggregated_vocab.soc
+		aggregated_vocab.id_to_vocab[5] = aggregated_vocab.eoc
 
 		for id in range(len(unique_words)):
-			aggregated_vocab.vocabulary[unique_words[id]] = id + 4
-			aggregated_vocab.id_to_vocab[id + 4] = unique_words[id]
+			aggregated_vocab.vocabulary[unique_words[id]] = id + 6
+			aggregated_vocab.id_to_vocab[id + 6] = unique_words[id]
 
 		for id in range(len(unique_characters)):
 			aggregated_vocab.char_to_id[unique_characters[id]] = id

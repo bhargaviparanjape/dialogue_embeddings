@@ -1,4 +1,5 @@
 from abc import ABCMeta
+from src.dataloaders.AbstractDataset import AbstractDataset
 from src.dataloaders.factory import RegisterBatcher
 from collections import defaultdict
 import numpy as np
@@ -12,10 +13,158 @@ class AbstractDataLoader():
 	__metaclass__ = ABCMeta
 
 
-@RegisterBatcher('conversation_snippet')
+@RegisterBatcher('conversation_snippets')
 class ConversationSnippetBatcher(AbstractDataLoader):
 	def __init__(self, args):
 		self.args = args
+
+	def get_batches(self, args, dataset):
+		# shuffle dataset
+		# fix max length and generate snippets of conversation from that dataset
+		mode = args.run_mode
+		batch_size = args.batch_size
+		conversation_size = args.conversation_size
+
+		def create_conversation_batch(batch_data, vocabulary):
+			## Recieves conversations of roughly equal lengths, with <pad> token dummy utterances
+
+			vocab_length = len(vocabulary.vocabulary)
+
+			## For category Classification labels
+			labels = []
+
+			## Input
+			conversation_mask = []
+			conversation_ranges = []
+			utterance_list = [] #elmo
+			utterance_ids_list = [] # avg_elmo
+			utterance_word_ids_list = [] #glove
+			utterance_bow_list = []
+			conversation_lengths = []
+			conversation_ids = []
+
+			batch = {}
+
+
+			max_num_utterances = max([len(c["utterances"]) for c in batch_data])
+			current_max_length = max([sum(batch_data[i]['mask']) for i in range(len(batch_data))])
+			if current_max_length != max_num_utterances:
+				# Trim excess dummy conversation in a batch
+				new_batch = []
+				for item in batch_data:
+					new_item = {
+						"utterances" : item["utterances"][:current_max_length],
+						"range" : item["range"][:current_max_length],
+						"mask" : item["mask"][:current_max_length],
+						"id" : item["id"]
+					}
+					new_batch.append(new_item)
+				batch_data = new_batch
+				max_num_utterances = current_max_length
+			max_utterance_length = max([max([len(u.tokens) for u in c["utterances"]]) for c in batch_data])
+
+			for c_idx, conversation in enumerate(batch_data):
+				length = len(conversation["utterances"])
+				utterance_ids_list += conversation["range"]
+				for u_idx, u in enumerate(conversation["utterances"]):
+					utterance_list.append(u.tokens)
+					utterance_vocab_ids = vocabulary.get_indices(u.tokens)
+					utterance_word_ids_list.append(pad_seq(utterance_vocab_ids, max_utterance_length))
+					utterance_bow_list.append(list(set(utterance_vocab_ids)))
+					labels.append(u.label)
+				utterance_ids_list += [-1]*(max_num_utterances - length)
+				for i in range(max_num_utterances - length):
+					utterance_list.append([vocabulary.pad_token])
+					utterance_word_ids_list.append(pad_seq([], max_utterance_length))
+					utterance_bow_list.append([vocabulary.vocabulary[vocabulary.pad_token]])
+					labels.append(0)
+				conversation_lengths.append(length)
+				conversation_ids.append(conversation["id"])
+				conversation_ranges.append(conversation["range"] + [-1]*(max_num_utterances - length))
+				conversation_mask.append(conversation["mask"] + [0]*(max_num_utterances - length))
+
+			max_bows_batch = max(len(l) for l in utterance_bow_list)
+			utterance_bow_list = [pad_seq(l, max_bows_batch) for l in utterance_bow_list]
+
+			batch['utterance_list'] = utterance_list
+			batch['utterance_word_ids'] = np.array(utterance_word_ids_list)
+			batch['utterance_ids_list'] = np.array(utterance_ids_list)
+			batch['utterance_bow_list'] = np.array(utterance_bow_list)
+			batch['input_mask'] = (1 * (batch['utterance_word_ids'] != 0))
+			batch['label'] = labels
+
+			batch['conversation_lengths'] = conversation_lengths
+			batch['conversation_ids'] = conversation_ids
+			batch['conversation_mask'] = conversation_mask
+			batch['max_num_utterances'] = max_num_utterances
+			batch['max_utterance_length'] = max_utterance_length
+
+			return batch
+
+
+
+		def create_batches(dataset, vocabulary):
+			batches = []
+			buckets = defaultdict(list)
+			bucket = []
+			for c_idx, conversation in enumerate(dataset):
+				length = len(conversation.utterances)
+				snippets = []
+				dummy_utterance = [AbstractDataset.Utterance([vocabulary.pad_token])]
+				start_utterance = [AbstractDataset.Utterance([vocabulary.soc])]
+				end_utterance = [AbstractDataset.Utterance([vocabulary.eoc])]
+				if length <= conversation_size:
+					snippet = {}
+					snippet["id"] = conversation.id
+					snippet["utterances"] = start_utterance + conversation.utterances + end_utterance
+					snippet["range"] = [-1] + (0, length) + [-1]
+					snippet["mask"] = [1]*(length+2)
+					snippets.append(snippet)
+				else:
+					# Pad with dummpy utterances on both sides
+					padded_dummy_utterances = dummy_utterance*(conversation_size-1)
+					padded_utterances = padded_dummy_utterances + conversation.utterances + padded_dummy_utterances
+					padded_range = [-1]*(conversation_size-1) + list(range(length)) + [-1]*(conversation_size-1)
+					for i in range(length + conversation_size - 1):
+						snippet = {}
+						snippet["id"] = conversation.id
+						snippet_utterences = padded_utterances[i : i+conversation_size]
+						snippet_range = padded_range[i : i+conversation_size]
+						if i < conversation_size - 1:
+							snippet_utterences = snippet_utterences[conversation_size-i-1:] + snippet_utterences[0:conversation_size-i-1]
+							snippet_range = snippet_range[conversation_size-i-1:] + snippet_range[0:conversation_size-i-1]
+						snippet["utterances"] = start_utterance + snippet_utterences + dummy_utterance
+						snippet["range"] = [-1] + snippet_range + [-1]
+						end_index = [i for i,x in enumerate(snippet["range"]) if x == -1][1]
+						snippet["mask"] = [1] + [1 if snippet["range"][j] >= 0 else 0 for j in range(1,conversation_size+1)] + [0]
+						snippet["mask"][end_index] = 1
+						snippet["utterances"][end_index] = end_utterance[0]
+						snippets.append(snippet)
+				bucket += snippets
+
+			np.random.shuffle(bucket)
+			num_batches = int(np.ceil(len(bucket) * 1.0 / batch_size))
+			for i in range(num_batches):
+				cur_batch_size = batch_size if i < num_batches - 1 else len(bucket) - batch_size * i
+				begin_index = i * batch_size
+				end_index = begin_index + cur_batch_size
+				batch_data = list(bucket[begin_index:end_index])
+				batch = create_conversation_batch(batch_data, vocabulary)
+				batches.append(batch)
+			return batches
+
+		if mode == "train":
+			train_batches = create_batches(dataset.train_dataset, dataset.vocabulary)
+			valid_batches = create_batches(dataset.valid_dataset, dataset.vocabulary)
+			test_batches = create_batches(dataset.test_dataset, dataset.vocabulary)
+			np.random.shuffle(train_batches)
+			return train_batches, valid_batches, test_batches
+		elif mode =="test":
+			valid_batches = create_batches(dataset.valid_dataset, dataset.vocabulary)
+			test_batches = create_batches(dataset.test_dataset, dataset.vocabulary)
+			return None,valid_batches,test_batches
+
+
 
 ## all utterances in all conversations of a batch should be masked and each conversation in batch must have same length
 @RegisterBatcher('conversation_length')
