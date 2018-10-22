@@ -13,6 +13,7 @@ def train_epochs(args, dataset, model):
 
 	start_epoch = 0
 	stats = {'timer': Timer(), 'epoch': 0, 'best_valid': 0}
+	bad_counter = 0
 	for epoch in range(start_epoch, args.num_epochs):
 		stats['epoch'] = epoch
 		train_loss = AverageMeter()
@@ -52,7 +53,14 @@ def train_epochs(args, dataset, model):
 						 stats['epoch'], model.updates))
 			model.save()
 			stats['best_valid'] = result
-
+			bad_counter = 0
+		else:
+			bad_counter += 1
+			logger.info("Bad Counter Incremented to %d" % bad_counter)
+			if bad_counter > 30:
+				logger.info("Early stopping after %d epochs" % epoch)
+				logger.info("Best Result : %.4f" % stats['best_valid'])
+				exit(0) 
 		# Recreate training batches using shuffle
 		logger.info("Creating train batches for epoch {0}".format(epoch+1))
 		# train_batches, _, _ = dataloader_factory.get_batches(args, dataset)

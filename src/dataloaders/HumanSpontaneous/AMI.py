@@ -69,7 +69,7 @@ class AmericanMeetingCorpus(AbstractDataset):
 				if dialogue.id[:-1] in TRAIN_SPLIT:
 					self.train_dataset.append(dialogue)
 				elif dialogue.id[:-1] in DEV_SPLIT:
-					self.valid.append(dialogue)
+					self.valid_dataset.append(dialogue)
 				elif dialogue.id[:-1] in TEST_SPLIT:
 					self.test_dataset.append(dialogue)
 

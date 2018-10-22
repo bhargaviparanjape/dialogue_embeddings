@@ -1,5 +1,5 @@
 import glob
-import os,sys,pdb,numpy as np,json,time,re,datetime,collections,csv
+import os,sys,pdb,numpy as np,json,time,re,datetime,collections,csv,pdb
 from collections import defaultdict
 from bs4 import BeautifulSoup
 import codecs
@@ -93,7 +93,7 @@ if __name__ == '__main__':
 	## Some transcripts have no dialogue acts available
 
 	regex_da = re.compile("ami_da_[0-9]+")
-	regex_words = re.compile("words[0-9]+")
+	regex_words = re.compile("words[x]*[0-9]+")
 
 	ami_utterances = {}
 	ami_words = {}
@@ -111,9 +111,9 @@ if __name__ == '__main__':
 			tokens = []
 			word_range = []
 			for i, word in enumerate(word_tags):
-				word_id = int(regex_words.findall(word['nite:id'])[0].replace("words", ""))
-				start_time = float(word['starttime'])
-				end_time = float(word['endtime'])
+				word_id = int(regex_words.findall(word['nite:id'])[0].replace("words", "").replace("x", ""))
+				start_time = float(word.get('starttime', 500.0))
+				end_time = float(word.get('endtime', 500.0))
 				text = word.text
 				group_words[person][word_id] = [person, start_time, end_time, text]
 				if len(tokens) == 0:
@@ -128,9 +128,17 @@ if __name__ == '__main__':
 					tokens = []
 					word_range = []
 			for i, vocal in enumerate(vocal_tags):
-				vocal_id = int(regex_words.findall(vocal['nite:id'])[0].replace("words", ""))
-				start_time = float(vocal['starttime'])
-				end_time = float(vocal['endtime'])
+				if len(regex_words.findall(vocal['nite:id'])) == 0:
+					pdb.set_trace()
+				vocal_id = int(regex_words.findall(vocal['nite:id'])[0].replace("words", "").replace("x", ""))
+				if "starttime" in vocal:
+					start_time = float(vocal['starttime'])
+				else:
+					start_time = 500.0
+				if "endtime" not in vocal:
+					entime = start_time
+				else:
+					end_time = float(vocal['endtime'])
 				if vocal.name == "vocalsound":
 					text = "(" + vocal['type'] + ")"
 				else:
@@ -189,7 +197,10 @@ if __name__ == '__main__':
 						start_time = utterance_words[key[0]][1]
 						end_time = utterance_words[key[1]][2]
 						for index in range(key[0], key[1]+1):
-							utterance.append(utterance_words[index][3])
+							if index in utterance_words:
+								utterance.append(utterance_words[index][3])
+							else:
+								utterance.append("")
 						utterance = " ".join(utterance)
 						final_utterance_list.append([person, start_time, end_time, utterance] + [dialogue_acts[key]])
 				full_utterance_list += final_utterance_list

@@ -36,4 +36,3 @@ class MultiLayerPerceptron(nn.Module):
 			output = self.network[i](input)
 			input = output
 		return output
->>>>>>> d368a5c2f7e6fa84b65bf8b5ba4565b067e0c2c4

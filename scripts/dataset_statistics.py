@@ -38,6 +38,8 @@ if __name__ == '__main__':
 		for transcription in data:
 			avg_transcript_length += len(transcription.utterances)
 			max_transcript_length = max(max_transcript_length, len(transcription.utterances))
+			if len(transcription.utterances) == 0:
+				continue
 			avg_utterance_length += sum([u.length for u in transcription.utterances])/len(transcription.utterances)
 			max_utterance_length = max(max_utterance_length, max([u.length for u in transcription.utterances]))
 		avg_utterance_length = float(avg_utterance_length)/dataset.total_length
@@ -45,5 +47,5 @@ if __name__ == '__main__':
 		logger.info("Avg. T length : %.4f" % avg_transcript_length)
 		logger.info("Max T length : %.4f" % max_transcript_length)
 		logger.info("Avg. U length : %.4f" % avg_utterance_length)
-		logger.info("Max T length : %.4f" % max_utterance_length)
+		logger.info("Max U length : %.4f" % max_utterance_length)
 
