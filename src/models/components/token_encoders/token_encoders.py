@@ -50,7 +50,6 @@ class AverageELMoEmbedding():
 		self.pretrained_embedding_path = args.pretrained_embedding_path
 		self.embed_size = args.embed_size
 		self.args = args
-		self.load_precomputed_embeddings()
 
 	def load_precomputed_embeddings(self):
 		self.embeddings = {}
@@ -64,6 +63,7 @@ class AverageELMoEmbedding():
 		conversation_id_list = input["conversation_ids"]
 		input_mask = FloatTensor(input["input_mask"])
 		max_num_utterances_batch = input['max_num_utterances']
+		utterance_ids_list = input['utterance_ids_list']
 
 		batch_embeddings = []
 		for x, id in enumerate(conversation_id_list):

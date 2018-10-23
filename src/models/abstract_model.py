@@ -78,6 +78,9 @@ class AbstractModel():
 		except BaseException:
 			logger.warning('WARN: Saving failed... continuing anyway.')
 
+	def checkpoint(self, file_path, epoch_no):
+		raise NotImplementedError
+
 	@staticmethod
 	def add_args(parser):
 		raise NotImplementedError

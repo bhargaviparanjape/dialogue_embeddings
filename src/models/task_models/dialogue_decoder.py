@@ -158,7 +158,7 @@ class DialogueClassifier(AbstractModel):
 		self.vocabulary = vocabulary
 		## Embedding layer initialization depends upon vocabulary
 		if hasattr(self.token_encoder, "load_embeddings"):
-			self.token_encoder.load_embeddings(self.vocabulary)
+			self.token_encoder.load_embeddings(self.vocabulary.vocabulary)
 
 	def vectorize(self, batch, mode = "train"):
 
@@ -178,29 +178,20 @@ class DialogueClassifier(AbstractModel):
 
 		## For decoder prepare initial state
 		conversation_ids = batch['utterance_word_ids']
-		start_token = self.vocabulary.get_tokens(conversation_ids[0])
+		start_state = self.vocabulary.get_tokens(conversation_ids[0])
 
 		## Prepare Output (If exists)
-		gold_next_token_embeddings, gold_next_utterance_mask = self.token_encoder.lookup_by_name(batch,
-										name_embed="next_utterance_ids", name_mask="next_utterance_mask")
-		gold_next_token_ids = batch["next_utterance_ids"]
-		gold_prev_token_embeddings, gold_prev_utterance_mask = self.token_encoder.lookup_by_name(batch,
-										name_embed="prev_utterance_ids", name_mask="prev_utterance_mask")
-		gold_prev_token_ids = batch["prev_utterance_ids"]
+
 
 		# Max utterance length will be the same for next and previous utterance lists as well
 		# Needs access to the token encoder itself
 		if mode == "train":
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, \
 				   max_num_utterances_batch, max_utterance_length, \
-				   self.token_encoder, \
-				   gold_next_utterance_mask, gold_prev_utterance_mask, \
-				   gold_next_token_ids, gold_prev_token_ids, \
-				   gold_next_token_embeddings, gold_prev_token_embeddings
+				   conversation_ids
 		else:
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, \
-				   max_num_utterances_batch, max_utterance_length, \
-				   self.token_encoder
+				   max_num_utterances_batch, max_utterance_length
 
 	@staticmethod
 	def add_args(parser):

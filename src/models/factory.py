@@ -18,6 +18,9 @@ def get_embeddings(embedding_layer_name, args):
 		model = MODEL_REGISTRY[embedding_layer_name](args)
 	return model
 
+def get_model_collection_by_name(model_name, args, **kwargs):
+	pass
+
 def get_model_by_name(model_name, args, **kwargs):
 	if model_name not in MODEL_REGISTRY:
 		raise Exception(
@@ -31,6 +34,11 @@ def get_model_by_name(model_name, args, **kwargs):
 def get_model(args, **kwargs):
 
 	## Split into components
-	main_model = get_model_by_name(args.model, args, **kwargs)
-
-	return main_model
+	if not args.multitask:
+		main_model = get_model_by_name(args.model[0], args, **kwargs)
+		return main_model
+	else:
+		model_collection = []
+		for model_name in args.model:
+			model_collection.append(get_model_by_name(model_name, args, **kwargs))
+		return model_collection

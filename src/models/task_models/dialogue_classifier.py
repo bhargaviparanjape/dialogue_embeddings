@@ -326,14 +326,15 @@ class DialogueClassifierNetwork(nn.Module):
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 
-		conversation_encoded_forward = conversation_encoded[:,0,:]
-		conversation_encoded_backward = conversation_encoded[:, 0, :]
+		# conversation_encoded_forward = conversation_encoded[:,0,:]
+		# conversation_encoded_backward = conversation_encoded[:, 1, :]
+		conversation_encoded_forward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		conversation_encoded_backward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
 
 		conversation_encoded_forward_reassembled = conversation_encoded_forward.view(conversation_batch_size,
-														max_num_utterances_batch, conversation_encoded.shape[2])
+														max_num_utterances_batch, conversation_encoded_forward.shape[1])
 		conversation_encoded_backward_reassembled = conversation_encoded_backward.view(conversation_batch_size,
-																					 max_num_utterances_batch,
-																					 conversation_encoded.shape[2])
+														max_num_utterances_batch, conversation_encoded_backward.shape[1])
 
 		# Shift to prepare next and previous utterence encodings
 		conversation_encoded_current1 = conversation_encoded_forward_reassembled[:, 0:-1, :].contiguous()
@@ -342,7 +343,7 @@ class DialogueClassifierNetwork(nn.Module):
 
 		conversation_encoded_current2 = conversation_encoded_backward_reassembled[:, 1:, :].contiguous()
 		conversation_encoded_previous = conversation_encoded_backward_reassembled[:, 0:-1, :].contiguous()
-		# conversation_mask_previous = conversation_mask[:, 0:-1].contiguous().contiguous()
+		# conversation_mask_previous = conversation_mask[:, 0:-1].contiguous()
 
 		# Gold Labels
 		gold_indices = variable(LongTensor(range(conversation_encoded_current1.shape[1]))).view(-1, 1).repeat(conversation_batch_size, 1)
@@ -391,15 +392,15 @@ class DialogueClassifierNetwork(nn.Module):
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 
-		conversation_encoded_forward = conversation_encoded[:, 0, :]
-		conversation_encoded_backward = conversation_encoded[:, 0, :]
+		# conversation_encoded_forward = conversation_encoded[:,0,:]
+		# conversation_encoded_backward = conversation_encoded[:, 1, :]
+		conversation_encoded_forward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		conversation_encoded_backward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
 
 		conversation_encoded_forward_reassembled = conversation_encoded_forward.view(conversation_batch_size,
-																					 max_num_utterances_batch,
-																					 conversation_encoded.shape[2])
+												max_num_utterances_batch, conversation_encoded_forward.shape[1])
 		conversation_encoded_backward_reassembled = conversation_encoded_backward.view(conversation_batch_size,
-																					   max_num_utterances_batch,
-																					   conversation_encoded.shape[2])
+												max_num_utterances_batch, conversation_encoded_backward.shape[1])
 
 		# Shift to prepare next and previous utterence encodings
 		conversation_encoded_current1 = conversation_encoded_forward_reassembled[:, 0:-1, :]
