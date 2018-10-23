@@ -50,7 +50,6 @@ class AverageELMoEmbedding():
 		self.pretrained_embedding_path = args.pretrained_embedding_path
 		self.embed_size = args.embed_size
 		self.args = args
-		self.load_embeddings()
 
 	def load_embeddings(self, vocabulary):
 		self.embeddings = {}
@@ -64,6 +63,7 @@ class AverageELMoEmbedding():
 		conversation_id_list = input["conversation_ids"]
 		input_mask = FloatTensor(input["input_mask"])
 		max_num_utterances_batch = input['max_num_utterances']
+		utterance_ids_list = input['utterance_ids_list']
 
 		batch_embeddings = []
 		for x, id in enumerate(conversation_id_list):
@@ -109,7 +109,7 @@ class GloveEmbeddings():
 		print("length of dict: {0}".format(len(word_to_id)))
 		pretrain_word_emb = {}
 		if self.pretrained_embedding_path is not None:
-			for line in codecs.open(self.embedding_path, "r", "utf-8", errors='replace'):
+			for line in codecs.open(self.pretrained_embedding_path, "r", "utf-8", errors='replace'):
 				items = line.strip().split()
 				if len(items) == self.embed_size + 1:
 					try:

@@ -24,6 +24,7 @@ TEST_SPLIT = [
 class AmericanMeetingCorpus(AbstractDataset):
 	class Utterance:
 		def __init__(self, id, utterance):
+			self.name = "ami"
 			self.id = utterance.utterance_id
 			self.label = utterance.dialogue_act
 			self.speaker = utterance.speaker

@@ -6,7 +6,10 @@ def add_args(parser):
 	## General Model parameters
 	model = parser.add_argument_group("Model Parameters")
 
-	model.add_argument("--model", type=str, default="dialogue_classifier")
+	model.add_argument("--model", type=str, action="append")
+	model.add_argument("--multitask", action="store_true", default=False)
+	model.add_argument("--mutlitask-procedure", type=str, default="multiplex")
+
 
 	model.add_argument("--token-encoder", type=str, default="glove")
 	model.add_argument("--fixed-token-encoder", action = "store_false", default=True)

@@ -7,6 +7,7 @@ from src.utils.vocabulary import Vocabulary
 class CallHomeEnglish(AbstractDataset):
 	class Utterance:
 		def __init__(self, id, utterance):
+			self.name = "call_home_eng"
 			self.id = utterance.utterance_id
 			self.speaker = utterance.speaker
 			self.tokens = utterance.tokens

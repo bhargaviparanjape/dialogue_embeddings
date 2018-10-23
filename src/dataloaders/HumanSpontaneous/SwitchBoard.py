@@ -15,6 +15,7 @@ class SwitchBoard(AbstractDataset):
 	class Utterance:
 		## minimum elements all datasets must have; id, length, tokens
 		def __init__(self, id, utterance):
+			self.name = "swda"
 			self.index = utterance.utterance_index
 			self.id = id
 			self.label = DAMSL_TAGSET[utterance.damsl_act_tag().strip()] # index for DAMSL starts from 1
