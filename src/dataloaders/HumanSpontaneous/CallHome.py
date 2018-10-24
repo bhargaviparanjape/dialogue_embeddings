@@ -12,6 +12,8 @@ class CallHomeEnglish(AbstractDataset):
 			self.speaker = utterance.speaker
 			self.tokens = utterance.tokens
 			self.length = len(self.tokens)
+			# assign dummy label
+			self.label = 0
 			self.start_time = utterance.start_time
 			self.end_time = utterance.end_time
 
@@ -28,6 +30,7 @@ class CallHomeEnglish(AbstractDataset):
 		self.name = type(self).__name__
 		corpus = call.CorpusReader(dataset_path)
 		self.total_length = 0
+		self.label_set_size = 0
 		self.vocabulary = Vocabulary()
 
 		dataset = []

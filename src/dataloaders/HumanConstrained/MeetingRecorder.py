@@ -19,14 +19,14 @@ class MeetingRecoder(AbstractDataset):
 		def __init__(self, utterance):
 			self.id = utterance.utterance_id
 			##mapping between DAMSL and tagset used in SWDA
-			self.da_tag = DAMSL_TAGSET[utterance.da_tag.strip()] - 1 # index for DAMSL starts from 1
+			self.label = DAMSL_TAGSET[utterance.da_tag.strip()] - 1 # index for DAMSL starts from 1
 			self.speaker = utterance.speaker
 			self.tokens = utterance.original_text
 			self.length = len(self.tokens)
 
 	class Dialogue:
 		def __init__(self, transcript):
-			self.conversation_no = transcript.conversation_id
+			self.id = transcript.conversation_id
 			self.conversation_length = len(transcript.utterances)
 			self.utterances = []
 			for utterance in transcript.utterances:

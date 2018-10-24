@@ -4,8 +4,8 @@ import numpy as np
 import torch
 import random
 sys.path.append(dirname(dirname(realpath(__file__))))
-from embed.utils import parameters
-from embed.dataloaders import factory as dataloader_factory
+from src_archive.utils import parameters
+from src_archive.dataloaders import factory as dataloader_factory
 from allennlp.modules.elmo import Elmo, batch_to_ids
 import json
 

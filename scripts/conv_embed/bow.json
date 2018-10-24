@@ -1,0 +1,21 @@
+{
+  "models" : [
+    {
+      "name" : "dl_bow",
+      "metric" : ["precision", "recall", "f1"],
+      "valid-metric" : "f1",
+
+      "output_layer" : "mlp",
+      "output-input-layer" : 100 ,
+      "output-hidden-layer" : 100,
+      "hidden-layer" : 50,
+      "output-num-layers" : 1
+    }
+  ],
+  "datasets" : [
+    {
+      "dataset" : "swda",
+      "dataset-path" : "/home/bhargavi/neulab/dialogue_embeddings/datasets/swda/swda"
+    }
+  ]
+}
