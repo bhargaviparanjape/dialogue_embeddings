@@ -11,16 +11,28 @@ from src.models import config as model_config
 from src.dataloaders import factory as data_factroy
 from src.models import factory as model_factory
 from src.learn import train
+from copy import deepcopy
 
 logger = logging.getLogger()
 
 def init_model(args, dataset):
-	data_factroy.set_dataset_arguments(args, dataset)
-	model = model_factory.get_model(args)
-	if args.pretrained_dialogue_embed_path is not None:
-		model.load(args.pretrained_dialogue_embed_path)
-	model.set_vocabulary(dataset.vocabulary)
-	return model
+	models = args.models
+	model_list = []
+	for model in models:
+		model_args = deepcopy(args)
+		for k,v in model.items():
+			vars(model_args)[k] = v
+		data_factroy.set_dataset_arguments(model_args, dataset)
+		# Generate namespaces for all models in list
+		model = model_factory.get_model(model_args)
+		if args.pretrained_dialogue_embed_path is not None:
+			model.load(args.pretrained_dialogue_embed_path)
+		model.set_vocabulary(dataset.vocabulary)
+		model_list.append(model)
+	if args.multitask:
+		return model_list
+	else:
+		return model_list[0]
 
 
 def main(args):
@@ -28,8 +40,9 @@ def main(args):
 	## DATA
 	logger.info('-' * 100)
 	logger.info('Load data files')
+	# TODO: Load dataset in memory using N workers
 	dataset = data_factroy.get_dataset(args, logger)
-	# TODO: Replace current dataloder with pytorch dataloader, batching function
+
 
 	## MODEL
 	logger.info('-' * 100)
@@ -72,6 +85,8 @@ if __name__ == '__main__':
 	model_config.add_args(parser)
 
 	args = parser.parse_args()
+
+	global_parameters.add_config(args, sys.argv[1])
 
 	# Set CUDA
 	if args.cuda and torch.cuda.is_available():

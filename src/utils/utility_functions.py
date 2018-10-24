@@ -69,43 +69,62 @@ class AverageCounter(object):
 
 
 class MultiTaskAverageCounter(object):
-	def __init__(self, named_metrics):
-		self.metrics = []
-		for metric in named_metrics:
-			d = {"name":metric , "metric":AverageCounter()}
-			self.metrics.append(d)
+	def __init__(self, models):
+		self.metrics = {}
+		for model in models:
+			self.metrics[model["model"]] = []
+			for metric in model["metric"]:
+				d = {"name":metric , "metric":AverageCounter()}
+				self.metrics[model["model"]].append(d)
 		self.reset()
 
 	def reset(self):
 		for item in self.metrics:
-			item["metric"].reset()
+			for i in range(len(self.metrics[item])):
+				(self.metrics[item][i]["metric"]).reset()
 
 	def update(self, update_values):
-		for idx, item in enumerate(self.metrics):
-			item["metric"].update(update_values[item["name"]][0], update_values[item["name"]][1])
+		for key in self.metrics:
+			metric_update_values = update_values[key]
+			for i in range(len(self.metrics[key])):
+				metric_name = self.metrics[key][i]["name"]
+				(self.metrics[key][i]["metric"]).update(metric_update_values[metric_name][0], metric_update_values[metric_name][1])
 
 	def print_values(self):
 		print_str = " "
-		for idx, item in enumerate(self.metrics):
-			print_str += item["name"] + ": " + "%.4f" % (item["metric"].avg) + " ;"
+		for key in self.metrics:
+			metric_by_model = self.metrics[key]
+			print_str += "%s{ "%key
+			for idx, item in enumerate(metric_by_model):
+				print_str += item["name"] + ": " + "%.4f" % (item["metric"].avg) + " ;"
+			print_str += " },"
 		return print_str
 
 	def average(self):
 		metric_values  = []
-		for idx, item in enumerate(self.metrics):
-			metric_values.append(item["metric"].avg)
+		for key in self.metrics:
+			for idx, item in enumerate(self.metrics[key]):
+				metric_values.append(item["metric"].avg)
 		return np.mean(metric_values)
 
 	def validation_metric(self, valid_metric):
-		if len(valid_metric) == 0:
+		## TODO: Add support for validation metrics of a single task only; currently an average is considered
+		valid_metric_dict = {k:v for (k,v) in valid_metric}
+		if len(valid_metric_dict) == 0:
 			return self.average()
 		else:
 			metric_values = []
-			for idx, item in enumerate(self.metrics):
-				if item["name"] in valid_metric:
-					metric_values.append(item["metric"].avg)
+			# for key in self.metrics:
+			# 	for idx, item in enumerate(self.metrics[key]):
+			# 		if item["name"] in valid_metric:
+			# 			metric_values.append(item["metric"].avg)
+			for key, value in valid_metric_dict.items():
+				task_metrics = self.metrics[key]
+				for idx, item in enumerate(task_metrics):
+					if item["name"] == value:
+						metric_values.append(item["metric"].avg)
+						break
 			return np.mean(metric_values)
-		return None
 
 class Timer(object):
     """Computes elapsed time."""

@@ -333,16 +333,16 @@ class DialogueBowNetwork(nn.Module):
 		self.args = args
 
 		## Define class network
-		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size[0], "num_layers" : args.output_num_layers[0],
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size, "num_layers" : args.output_num_layers,
 				 "output_size": args.output_size}
-		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
-		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
+		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
+		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
 
 		## Define loss function: Custom masked entropy
 
 
 	def multilabel_cross_entropy(self, input, target, mask):
-		negative_log_prob = -(F.log_softmax(input/self.args.temperature))
+		negative_log_prob = -(F.log_softmax(input/self.args.temperature, dim=1))
 		#TODO: Divide by length of each utterance and divide by batch size
 		loss = (torch.gather(negative_log_prob, 1, target) * mask.float()).sum()/mask.float().sum()
 		# loss = (negative_log_prob*target.float()).sum()/target.float().sum()

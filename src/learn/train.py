@@ -109,10 +109,11 @@ def train_epochs(args, dataset, model):
 		train_batches,_,_ = dataloader_factory.get_dataloader(args, dataset)
 		shuffle(train_batches)
 
+
 def validate(args, dataloader, model, stats, mode = "dev"):
 
 	eval_time = Timer()
-	metrics = MultiTaskAverageCounter(args.metric)
+	metrics = MultiTaskAverageCounter(args.models)
 
 	examples = 0
 	for iteration, batch in enumerate(dataloader):
@@ -120,21 +121,23 @@ def validate(args, dataloader, model, stats, mode = "dev"):
 		pred, mask  = model.predict(batch)
 		target,_ = model.target(batch)
 
-		update_metrics = model.evaluate_metrics(pred, target, mask, mode)
+		update_metrics = {}
+		update_metrics[args.models[0]["model"]] = model.evaluate_metrics(pred, target, mask, mode)
 		metrics.update(update_values=update_metrics)
 
 		if mode == 'train' and examples >= 1e4:
 			break
 
-	logger.info('%s valid : Epoch = %d | metrics = %s | ' %
+	logger.info('%s valid : Epoch = %d | metrics = %s [' %
 				(mode, stats['epoch'], metrics.print_values()) +
-				'examples = %d | ' %
+				'] | examples = %d | ' %
 				(examples) +
 				'valid time = %.2f (s)' % eval_time.time())
 
-	## accumulate score
-	# The metrics that will be considered in the validation history and used for patience computation
-	result = metrics.validation_metric(args.valid_metric)
+	# The valid-metric that will be considered in the validation history and used for patience computation;
+	# Valid metric of multiple tasks will be averaged out
+	validation_metrics = [(model['model'], model["valid_metric"]) for model in args.models]
+	result = metrics.validation_metric(validation_metrics)
 	return result
 
 

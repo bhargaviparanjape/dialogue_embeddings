@@ -332,9 +332,9 @@ class DialogueActClassifierNetwork(nn.Module):
 	def add_args(parser):
 		model_parameters = parser.add_argument_group("Model Parameters")
 		model_parameters.add_argument("--output-size", type=int)
-		model_parameters.add_argument("--output-hidden-size", type=int, action="append")
+		model_parameters.add_argument("--output-hidden-size", type=int)
 		model_parameters.add_argument("--output-input-size", type=int)
-		model_parameters.add_argument("--output-num-layers", type=int , action="append")
+		model_parameters.add_argument("--output-num-layers", type=int)
 
 
 #################################################

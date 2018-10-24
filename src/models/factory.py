@@ -32,13 +32,6 @@ def get_model_by_name(model_name, args, **kwargs):
 	return model
 
 def get_model(args, **kwargs):
-
 	## Split into components
-	if not args.multitask:
-		main_model = get_model_by_name(args.model[0], args, **kwargs)
-		return main_model
-	else:
-		model_collection = []
-		for model_name in args.model:
-			model_collection.append(get_model_by_name(model_name, args, **kwargs))
-		return model_collection
+	main_model = get_model_by_name(args.model, args, **kwargs)
+	return main_model

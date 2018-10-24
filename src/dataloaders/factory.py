@@ -38,16 +38,17 @@ def RegisterLoader(loader_name):
 
 def get_dataset(args, logger):
 	## TODO: These are already lists now
-	datasets = args.dataset
-	dataset_paths = args.dataset_path
+	datasets = args.datasets
 	aggregated_dataset = AbstractDataset()
 	for idx, dataset in enumerate(datasets):
-		if dataset not in DATASET_REGISTRY:
+		dataset_name = dataset["dataset"]
+		dataset_path = dataset["dataset_path"]
+		if dataset_name not in DATASET_REGISTRY:
 			raise Exception(
-				NO_DATASET_ERR.format(dataset, DATASET_REGISTRY.keys()))
+				NO_DATASET_ERR.format(dataset_name, DATASET_REGISTRY.keys()))
 
-		if dataset in DATASET_REGISTRY:
-			loaded_dataset = DATASET_REGISTRY[dataset](args, dataset_paths[idx])
+		if dataset_name in DATASET_REGISTRY:
+			loaded_dataset = DATASET_REGISTRY[dataset_name](args, dataset_path)
 			aggregated_dataset += loaded_dataset
 
 
@@ -93,9 +94,9 @@ def get_dataloader(args, dataset):
 
 
 def set_dataset_arguments(args, dataset):
-	if args.model[0] == "da_classifier":
+	if args.model == "da_classifier":
 		vars(args)["output_size"] = dataset.label_set_size
-	elif args.model[0] == "dl_bow" or args.model[0] == "dl_bow2" or args.model[0] == "dl_decoder":
+	elif args.model == "dl_bow" or args.model == "dl_bow2" or args.model == "dl_decoder":
 		vars(args)["output_size"] = len(dataset.vocabulary.vocabulary)
-	elif args.model[0] == "da_bow":
+	elif args.model == "da_bow":
 		vars(args)["output_size"] = [len(dataset.vocabulary.vocabulary), dataset.label_set_size]

@@ -1,4 +1,5 @@
 import argparse,logging
+import json,os,sys
 
 MAX_VOCAB_LENGTH = 5000
 
@@ -21,8 +22,9 @@ def add_args(parser):
 
 	# Files
 	files = parser.add_argument_group('Filesystem')
-	files.add_argument('--dataset', type=str, action="append")
-	files.add_argument('--dataset-path', type=str, action="append")
+	files.add_argument('config-file', type=str, default="bow.json")
+	files.add_argument('--dataset', type=str, default="swda")
+	files.add_argument('--dataset-path', type=str, default="datasets/swda/swda")
 	files.add_argument("--log-file", type=str, default=None)
 	files.add_argument("--pretrained-embedding-path", type=str, default=None)
 	files.add_argument("--model-path", type=str, default=None)
@@ -38,6 +40,12 @@ def add_args(parser):
 						   help='Path to a pretrained model to warm-start with')
 
 
+def add_config(args, config_file):
+	config_arguments = json.load(open(config_file))
+	model_arguments = config_arguments["models"]
+	dataset_arguments = config_arguments["datasets"]
+	vars(args)["datasets"] = dataset_arguments
+	vars(args)["models"] = model_arguments
 
 
 def set_defaults(args):
