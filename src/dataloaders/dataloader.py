@@ -117,7 +117,7 @@ class ConversationSnippetBatcher(AbstractDataLoader):
 					snippet = {}
 					snippet["id"] = conversation.id
 					snippet["utterances"] = start_utterance + conversation.utterances + end_utterance
-					snippet["range"] = [-1] + (0, length) + [-1]
+					snippet["range"] = [-1] +list(range (0, length)) + [-1]
 					snippet["mask"] = [1]*(length+2)
 					snippets.append(snippet)
 				else:
