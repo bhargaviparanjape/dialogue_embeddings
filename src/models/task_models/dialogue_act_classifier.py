@@ -90,7 +90,7 @@ class DialogueActClassifier(AbstractModel):
 
 	def update(self, inputs):
 		## update based on inputs
-		"""Forward a batch of examples; step the optimizer to update weights."""
+		"""Forward a batch 	of examples; step the optimizer to update weights."""
 		if not self.optimizer:
 			raise RuntimeError('No optimizer set.')
 

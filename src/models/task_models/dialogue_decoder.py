@@ -36,23 +36,16 @@ class DialogueBowNetwork(nn.Module):
 	def forward(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask,
 		max_num_utterances_batch, max_utterance_length,
-		decoder_input,
-		next_utterance_mask, prev_utterance_mask,
-		next_utterance_word_ids, prev_utterance_word_ids,
-		next_utterance_embeddings, prev_utterance_embeddings] = input
+		start_encoding, token_ids] = input
 
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
-		## Get Decoder Scores (Batch size * Max Sequence Length * Vocab size) [this lookup for start varialbe can only be done for Glove presently]
-		next_utterance_embeddings = decoder_input
-		next_vocabulary_scores = self.next_utterance_decoder(decoder_input, next_utterance_embeddings, conversation_encoded.squeeze(1), next_utterance_mask)
-		prev_vocab_scores = self.prev_utterance_decoder(prev_utterance_embeddings, conversation_encoded.squeeze(1), prev_utterance_mask)
+		## Reshape the
 
-		## Computing custom masked cross entropy
-		next_loss = self.masked_loglikelihood(next_vocabulary_scores, next_utterance_word_ids, next_utterance_mask)
-		prev_loss = self.masked_loglikelihood(prev_vocab_scores, prev_utterance_word_ids, prev_utterance_mask)
+		## Get Decoder Scores (Batch size * Max Sequence Length * Vocab size) [this lookup for start varialbe can only be done for Glove presently]
+
 
 		## Average loss for next and previous conversations
 		loss = (next_loss + prev_loss) / 2
@@ -60,7 +53,8 @@ class DialogueBowNetwork(nn.Module):
 		return loss
 
 	def evaluate(self, *input):
-		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, max_utterance_length] = input
+		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch, max_utterance_length,
+		 start_encoding] = input
 
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
@@ -75,6 +69,12 @@ class DialogueBowNetwork(nn.Module):
 
 
 		return next_predictions, prev_predictions
+
+	@staticmethod
+	def add_args(parser):
+		model_parameters = parser.add_argument_group("Model Parameters")
+		model_parameters.add_argument("--max-decode-length", type=int, default=50)
+		model_parameters.add_argument("--teacher-forcing-ratio", type=float, default=1.0)
 
 
 
@@ -178,9 +178,10 @@ class DialogueClassifier(AbstractModel):
 
 		## For decoder prepare initial state
 		conversation_ids = batch['utterance_word_ids']
-		start_state = self.vocabulary.get_tokens(conversation_ids[0])
-
-		## Prepare Output (If exists)
+		start_state = variable(LongTensor([self.vocabulary.sos]*batch_size))
+		input = {}
+		input["start_token_ids"] = start_state
+		start_encoding = self.token_encoder.lookup_by_name(input, "start_token_ids")
 
 
 		# Max utterance length will be the same for next and previous utterance lists as well
@@ -188,10 +189,11 @@ class DialogueClassifier(AbstractModel):
 		if mode == "train":
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, \
 				   max_num_utterances_batch, max_utterance_length, \
-				   conversation_ids
+				   start_encoding, conversation_ids
 		else:
 			return batch_size, token_embeddings, input_mask_variable, conversation_mask, \
-				   max_num_utterances_batch, max_utterance_length
+				   max_num_utterances_batch, max_utterance_length, \
+				   start_encoding
 
 	@staticmethod
 	def add_args(parser):

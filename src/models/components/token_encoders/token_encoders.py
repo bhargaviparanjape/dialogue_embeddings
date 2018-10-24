@@ -145,10 +145,13 @@ class GloveEmbeddings():
 		return utterance_embeddings, input_mask
 
 
-	def lookup_by_name(self, input, name_embed, name_mask):
+	def lookup_by_name(self, input, name_embed, name_mask = None):
 		input_token_ids = LongTensor(input[name_embed])
 		utterance_embeddings = self.embed_layer(input_token_ids)
-		input_mask = FloatTensor(input[name_mask])
+		if name_mask in input:
+			input_mask = FloatTensor(input[name_mask])
+		else:
+			input_mask = None
 		return utterance_embeddings, input_mask
 
 

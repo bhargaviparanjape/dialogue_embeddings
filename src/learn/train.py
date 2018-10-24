@@ -13,7 +13,8 @@ def train_epochs_multiplex(args, dataset, model):
 
 def train_epochs(args, dataset, model):
 
-	train_batches, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
+	#train_batches, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
+	train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset)
 
 	start_epoch = 0
 	stats = {'timer': Timer(), 'epoch': 0, 'best_valid': 0}
@@ -24,14 +25,12 @@ def train_epochs(args, dataset, model):
 		epoch_time = Timer()
 
 		# Run 1 epoch
-		for iteration in range(len(train_batches)):
-
-			batch = train_batches[iteration]
+		for iteration, batch in enumerate(train_dataloader):
 			train_loss.update(*model.update(batch))
 
 			if (iteration + 1) % args.eval_interval == 0:
 				logger.info('train: Epoch = %d | iter = %d/%d | ' %
-						(epoch, iteration, len(train_batches)) +
+						(epoch, iteration, len(train_dataloader)) +
 						'loss = %.2f | elapsed time = %.2f (s)' %
 						(train_loss.avg, stats['timer'].time()))
 				train_loss.reset()
@@ -45,11 +44,11 @@ def train_epochs(args, dataset, model):
 
 
 		# Validate Partial Train data
-		validate(args, train_batches, model, stats, mode = "train")
+		validate(args, train_dataloader, model, stats, mode = "train")
 
 		# Validate on Development data
-		# TODO: Make this more generic and abstract out inot model file
-		result = validate(args, validation_batches, model, stats, mode = "dev")
+		# TODO: Make this more generic and abstract out model file
+		result = validate(args, validation_dataloader, model, stats, mode = "dev")
 
 		if result > stats['best_valid']:
 			logger.info('Best valid: %s = %.2f (epoch %d, %d updates)' %
@@ -71,15 +70,13 @@ def train_epochs(args, dataset, model):
 		shuffle(train_batches)
 
 
-def validate(args, batches, model, stats, mode = "dev"):
+def validate(args, dataloader, model, stats, mode = "dev"):
 
 	eval_time = Timer()
 	metrics = MultiTaskAverageCounter(args.metric)
 
 	examples = 0
-	for iteration in range(len(batches)):
-
-		batch = batches[iteration]
+	for iteration, batch in enumerate(dataloader):
 		examples += len(batch)
 		pred, mask  = model.predict(batch)
 		target,_ = model.target(batch)
