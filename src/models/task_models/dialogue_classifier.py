@@ -498,7 +498,7 @@ class DialogueClassifier(AbstractModel):
 	def evaluate_metrics(self, predicted, target, mask, mode = "dev"):
 		# Named Metric List
 		batch_size = mask.shape[0]
-		next_mask = mask[:, 0:-1].contiguous().view(-1,1).long()
+		next_mask = mask[:, 1:].contiguous().view(-1,1).long()
 		next_predicted = predicted[0].contiguous().view(-1,1)
 		prev_predicted = predicted[1].contiguous().view(-1,1)
 		correct = torch.LongTensor(range(predicted[0].shape[1])).view(-1, 1).repeat(batch_size, 1)

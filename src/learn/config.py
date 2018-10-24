@@ -6,6 +6,7 @@ def add_args(parser):
 	training = parser.add_argument_group("Training")
 
 	training.add_argument("--batch-function", type=str, default="conversation_length")
+	training.add_argument("--dataloader", type=str, default="conversation_snippets")
 	training.add_argument("--num-epochs", type=int, default=20)
 	training.add_argument("--optimizer", type=str, default="adam")
 	training.add_argument("--batch-size", type=int, default=8)

@@ -2,9 +2,11 @@ from src.dataloaders.AbstractDataset import AbstractDataset
 
 NO_DATASET_ERR = "Dataset {} not in DATASET_REGISTRY! Available datasets are {}"
 NO_BACTHER_ERR = "Bacthing function {} not in BACTHER_REGISTRY! Available batching functions are {}"
+NO_DATALOADER_ERR = "Dataloader function {} not in DATALOADER_REGISTRY! Available dataloaders are {}"
 
 DATASET_REGISTRY = {}
 BATCHER_REGISTRY = {}
+DATALOADER_REGISTRY = {}
 
 def RegisterDataset(dataset_name):
 	"""Registers a dataset."""
@@ -20,6 +22,15 @@ def RegisterBatcher(batching_function_name):
 
 	def decorator(f):
 		BATCHER_REGISTRY[batching_function_name] = f
+		return f
+
+	return decorator
+
+def RegisterLoader(loader_name):
+	"""Registers a dataset."""
+
+	def decorator(f):
+		DATALOADER_REGISTRY[loader_name] = f
 		return f
 
 	return decorator
@@ -69,6 +80,16 @@ def get_batches(args, dataset):
 		batches = batcher.get_batches(args, dataset)
 
 	return batches
+
+def get_dataloader(args, dataset):
+	if args.dataloader not in DATALOADER_REGISTRY:
+		raise Exception(
+			NO_DATALOADER_ERR.format(args.dataloader, DATALOADER_REGISTRY.keys()))
+
+	if args.dataloader in DATALOADER_REGISTRY:
+		dataloader = DATALOADER_REGISTRY[args.dataloader](args)
+		dataloader_object = dataloader.get_dataloader(args, dataset)
+	return dataloader_object
 
 
 def set_dataset_arguments(args, dataset):
