@@ -512,7 +512,7 @@ class DialogueClassifier(AbstractModel):
 		for i in range(next_predicted.shape[0]):
 			predicted_ids = np.where(next_predicted[i] > self.args.threshold)[0] # remove start, end, pad token
 			gold_ids = next_correct[i][np.where(next_correct[i] != 0)]
-			if next_mask[i].item() == 0:
+			if len(gold_ids) == 0:
 				continue
 
 			if len(set(predicted_ids)) == 0:
