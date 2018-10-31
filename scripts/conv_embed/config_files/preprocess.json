@@ -1,0 +1,8 @@
+{
+  "datasets" : [
+    {
+      "dataset" : "swda",
+      "dataset_path" : "/home/bhargavi/neulab/dialogue_embeddings/datasets/swda/swda"
+    }
+  ]
+}

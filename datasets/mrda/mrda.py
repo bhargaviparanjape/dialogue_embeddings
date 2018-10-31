@@ -57,7 +57,7 @@ class Transcript:
 		transcript_rows = list(csv.reader(open(self.trans_filename, 'rt')))
 		databse_rows = list(csv.reader(open(self.dadb_filename, 'rt')))
 		assert (len(transcript_rows) == len(databse_rows))
-		self.conversation_id = mrda_filename.rsplit(".", 1)[0]
+		self.conversation_id = mrda_filename.split('.', 1)[0].split('/')[-1]
 		## TODO: some utterances maybe ignored by explicit instruction of the annotators
 		self.utterances = [Utterance(x) for x in zip(transcript_rows, databse_rows)]
 

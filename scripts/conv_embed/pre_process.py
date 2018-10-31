@@ -4,8 +4,10 @@ import numpy as np
 import torch
 import random
 sys.path.append(dirname(dirname(realpath(__file__))))
-from src_archive.utils import parameters
-from src_archive.dataloaders import factory as dataloader_factory
+from src.utils import global_parameters
+from src.learn import config as train_config
+from src.models import config as model_config
+from src.dataloaders import factory as dataloader_factory
 from allennlp.modules.elmo import Elmo, batch_to_ids
 import json
 
@@ -35,7 +37,7 @@ def get_pretrained_embeddings(args, dataset):
 					dict = ee(character_ids[i:i + 10].unsqueeze(0))
 					embeddings[i:i + 10] = dict['elmo_representations'][0]
 					mask[i:i + 10] = dict['mask']
-				if args.lookup == "avg":
+				if args.utterance_encoder == "avg":
 					conversation_embeddings = average_embeddings(embeddings, mask)
 					conversation_dict["embeddings"] = conversation_embeddings
 				output_path.write(json.dumps(conversation_dict)+"\n")
@@ -43,14 +45,19 @@ def get_pretrained_embeddings(args, dataset):
 
 
 if __name__ == '__main__':
+	parser = argparse.ArgumentParser(
+		'Preproces Data',
+		formatter_class=argparse.ArgumentDefaultsHelpFormatter
+	)
 
-	args = parameters.parse_arguments()
+	global_parameters.add_args(parser)
+	train_config.add_args(parser)
+	model_config.add_args(parser)
+	args = parser.parse_args()
+	global_parameters.add_config(args, sys.argv[1])
+
 	logging.basicConfig(level=logging.DEBUG)
 	logger = logging.getLogger(__name__)
 
 	dataset = dataloader_factory.get_dataset(args, logger)
 	get_pretrained_embeddings(args, dataset)
-
-
-
-
