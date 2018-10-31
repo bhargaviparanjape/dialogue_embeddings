@@ -31,6 +31,7 @@ def add_args(parser):
 	files.add_argument('--model-dir', type=str, default=None)
 	files.add_argument("--pretrained-model-path", type=str, default=None)
 	files.add_argument("--pretrained-dialogue-embed-path", type=str, default=None)
+	files.add_argument("--output-path", type=str, default=None)
 
 	# Saving + loading
 	save_load = parser.add_argument_group('Saving/Loading')
@@ -42,11 +43,10 @@ def add_args(parser):
 
 def add_config(args, config_file):
 	config_arguments = json.load(open(config_file))
-	model_arguments = config_arguments["models"]
-	dataset_arguments = config_arguments["datasets"]
+	dataset_arguments = config_arguments.get("datasets", None)
 	vars(args)["datasets"] = dataset_arguments
+	model_arguments = config_arguments.get("models", None)
 	vars(args)["models"] = model_arguments
-
 
 def set_defaults(args):
 	raise NotImplementedError
