@@ -98,7 +98,7 @@ def train_epochs(args, dataset, model):
 
 		if result > stats['best_valid']:
 			logger.info('Best valid: %s = %.2f (epoch %d, %d updates)' %
-						(" ".join(args.metric), result,
+						(model.args.valid_metric, result,
 						 stats['epoch'], model.updates))
 			model.save()
 			stats['best_valid'] = result

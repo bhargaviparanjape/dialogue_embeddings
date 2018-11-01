@@ -508,6 +508,12 @@ class DialogueClassifier(AbstractModel):
 		target_reassembled = target[0].view(mask.shape[0], -1, target[0].shape[1])
 		next_correct = target_reassembled[:, 1:, :].contiguous().view(next_mask.shape[0],-1)
 		prev_correct = target_reassembled[:, 0:-1, :].contiguous().view(next_mask.shape[0],-1)
+		if self.args.use_cuda:
+			next_correct = next_correct.cpu().data.numpy()
+			prev_correct = prev_correct.cpu().data.numpy()
+		else:
+			next_correct = next_correct.data.numpy()
+			prev_correct = prev_correct.data.numpy()
 		batch_precision = 0
 		batch_recall = 0
 		batch_f1 = 0

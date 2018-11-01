@@ -111,7 +111,7 @@ class GloveEmbeddings():
 
 	def load_embeddings(self, vocabulary):
 		word_to_id = vocabulary.vocabulary
-		self.vocabulary = vocabulary
+		self.vocabulary = vocabulary.vocabulary
 		self.embeddings = []
 		print("Loading pretrained embeddings from {0}".format(self.pretrained_embedding_path))
 		for _ in range(len(word_to_id)):

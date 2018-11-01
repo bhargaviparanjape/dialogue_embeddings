@@ -1,7 +1,7 @@
 import argparse,logging
 import json,os,sys
 
-MAX_VOCAB_LENGTH = 20000
+MAX_VOCAB_LENGTH = 500
 
 def str2bool(v):
 	return v.lower() in ('yes', 'true', 't', '1', 'y')
@@ -42,6 +42,7 @@ def add_args(parser):
 
 
 def add_config(args, config_file):
+	## some model related arguments are not being assigned properly
 	config_arguments = json.load(open(config_file))
 	dataset_arguments = config_arguments.get("datasets", None)
 	vars(args)["datasets"] = dataset_arguments
