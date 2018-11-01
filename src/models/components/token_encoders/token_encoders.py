@@ -51,7 +51,7 @@ class AverageELMoEmbedding():
 		self.embed_size = args.embed_size
 		self.args = args
 
-	def load_precomputed_embeddings(self):
+	def load_embeddings(self, vocabulary):
 		self.embeddings = {}
 		with open(self.pretrained_embedding_path) as fin:
 			for line in fin:
@@ -110,7 +110,7 @@ class GloveEmbeddings():
 
 
 	def load_embeddings(self, vocabulary):
-		word_to_id = vocabulary
+		word_to_id = vocabulary.vocabulary
 		self.vocabulary = vocabulary
 		self.embeddings = []
 		print("Loading pretrained embeddings from {0}".format(self.pretrained_embedding_path))
