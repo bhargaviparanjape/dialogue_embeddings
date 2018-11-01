@@ -14,11 +14,52 @@ import torch
 class AbstractDataLoader():
 	__metaclass__ = ABCMeta
 
+## Implement sampling of K conversation snippets from given conversation
+class SingleSnippetSampler(Sampler):
+	def __init__(self, data, batch_size, shuffle=True):
+		self.id_snippet_dict = data[0]
+		self.lengths = np.array(data[1])
+		self.batch_size = batch_size
+		self.shuffle = shuffle
+		self.num_snippets = 10
+
+	def __iter__(self):
+		chosen_snippets = []
+		# Sample at most num_snippets from each conversation
+		for conversation_id in self.id_snippet_dict:
+			snippet_choices = self.id_snippet_dict[conversation_id]
+			if len(snippet_choices) < self.num_snippets:
+				chosen_snippets += snippet_choices
+			else:
+				sampled_snippets = np.random.choice(snippet_choices, self.num_snippets, replace=False)
+				chosen_snippets += sampled_snippets.tolist()
+		# Index lengths of the chosen snippets
+		chosen_lengths = self.lengths[chosen_snippets]
+
+		# Chosen snippets will no longer be contiguous
+		lengths = np.array(
+			[(-l, np.random.random()) for l in chosen_lengths],
+			dtype=[('l', np.int_), ('rand', np.float_)]
+		)
+		# Indices will be contiguous, you want their corresponding values in chosen_snippets
+		indices = np.argsort(lengths, order=('l', 'rand'))
+		batches = [[chosen_snippets[j] for j in indices[i:i + self.batch_size]]
+		           for i in range(0, len(indices), self.batch_size)]
+		if self.shuffle:
+			np.random.shuffle(batches)
+		return iter([i for batch in batches for i in batch])
+
+
+
+	def __len__(self):
+		return len(self.keys) * self.num_snippets
+
 class SortedBatchSampler(Sampler):
 	def __init__(self, lengths, batch_size, shuffle=True):
 		self.lengths = lengths
 		self.batch_size = batch_size
 		self.shuffle = shuffle
+		self.num_snippets = 5
 
 	def __iter__(self):
 		lengths = np.array(
@@ -47,7 +88,9 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 
 		def create_snippets(dataset, vocabulary):
 			snippet_bucket = []
+			snippet_bucket_length = 0
 			snippet_lengths = []
+			id_snippet_dict = {}
 			for c_idx, conversation in enumerate(dataset):
 				length = len(conversation.utterances)
 				snippets = []
@@ -85,9 +128,17 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 						snippet["length"] = len(snippet["utterances"])
 						snippets.append(snippet)
 						snippet_lengths.append(snippet["length"])
+				id_snippet_dict[conversation.id] = list(range(snippet_bucket_length, snippet_bucket_length + len(snippets)))
 				snippet_bucket += snippets
+				snippet_bucket_length += len(snippets)
 
-			sampler = SortedBatchSampler(snippet_lengths, args.batch_size, shuffle=True)
+
+
+			# sampling all snippets of all conversations at once
+			# sampler = SortedBatchSampler(snippet_lengths, args.batch_size, shuffle=True)
+			# snippet dictionary that connects id to the snippets belonging to that ID
+			sampler = SingleSnippetSampler((id_snippet_dict, snippet_lengths), args.batch_size, shuffle=True)
+
 			batcher = SnippetBatcher(args, vocabulary)
 			loader = torch.utils.data.DataLoader(
 				snippet_bucket,
