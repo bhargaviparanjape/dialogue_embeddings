@@ -55,8 +55,6 @@ def train_epochs_sharedloss(args, dataset, model):
 
 		# Recreate training batches using shuffle
 		logger.info("Creating train batches for epoch {0}".format(epoch + 1))
-		train_batches, _, _ = dataloader_factory.get_dataloader(args, dataset)
-		shuffle(train_batches)
 
 
 def train_epochs(args, dataset, model):
@@ -106,8 +104,6 @@ def train_epochs(args, dataset, model):
 
 		# Recreate training batches using shuffle
 		logger.info("Creating train batches for epoch {0}".format(epoch+1))
-		train_batches,_,_ = dataloader_factory.get_dataloader(args, dataset)
-		shuffle(train_batches)
 
 
 def validate(args, dataloader, model, stats, mode = "dev"):

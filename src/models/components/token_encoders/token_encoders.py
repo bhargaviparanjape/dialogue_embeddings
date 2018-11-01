@@ -57,6 +57,12 @@ class AverageELMoEmbedding():
 			for line in fin:
 				dict =  json.loads(line)
 				self.embeddings[dict["id"]] = dict["embeddings"]
+		self.embeddings[vocabulary.soc] = np.random.uniform(-math.sqrt(3.0 / self.embed_size),
+													 math.sqrt(3.0 / self.embed_size), size=self.embed_size)
+		self.embeddings[vocabulary.eoc] = np.random.uniform(-math.sqrt(3.0 / self.embed_size),
+													 math.sqrt(3.0 / self.embed_size), size=self.embed_size)
+		self.eoc = vocabulary.eoc
+		self.soc = vocabulary.soc
 
 
 	def lookup(self, input):
@@ -64,12 +70,18 @@ class AverageELMoEmbedding():
 		input_mask = FloatTensor(input["input_mask"])
 		max_num_utterances_batch = input['max_num_utterances']
 		utterance_ids_list = input['utterance_ids_list']
-
+		batch_length = len(conversation_id_list)
+		reshaped_utterance_ids =  utterance_ids_list.reshape((batch_length, max_num_utterances_batch))
 		batch_embeddings = []
 		for x, id in enumerate(conversation_id_list):
 			embeddings = self.embeddings[id]
-			batch_embeddings += embeddings
-			batch_embeddings += [np.random.rand(self.args.embed_size).tolist() for i in range(max_num_utterances_batch - len(embeddings))]
+			# Based on the utterance ID range of the current snippet of this conversation, sample a small subset of utterance embeddings
+			conversation_range = reshaped_utterance_ids[x]
+			snippet_range = conversation_range[np.where(conversation_range >= 0)]
+			snippet_embeddings = [self.embeddings[self.soc].tolist()] + self.embeddings[id][snippet_range[0]:snippet_range[-1] + 1]\
+									+ [self.embeddings[self.eoc].tolist()]
+			batch_embeddings += snippet_embeddings
+			batch_embeddings += [np.random.rand(self.args.embed_size).tolist() for i in range(max_num_utterances_batch - len(snippet_embeddings))]
 		batch_embedding_tensor = FloatTensor(batch_embeddings)
 		return batch_embedding_tensor, input_mask
 

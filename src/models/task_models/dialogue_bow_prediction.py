@@ -338,7 +338,7 @@ class DialogueBowNetwork(nn.Module):
 		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
 		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
 
-		## Define loss function: Custom masked entropy
+
 
 
 	def multilabel_cross_entropy(self, input, target, mask):
@@ -557,7 +557,7 @@ class DialogueClassifier(AbstractModel):
 		self.vocabulary = vocabulary
 		## Embedding layer initialization depends upon vocabulary
 		if hasattr(self.token_encoder, "load_embeddings"):
-			self.token_encoder.load_embeddings(self.vocabulary.vocabulary)
+			self.token_encoder.load_embeddings(self.vocabulary)
 
 	def vectorize(self, batch, mode = "train"):
 		batch_size = int(len(batch['utterance_list']) / batch['max_num_utterances'])

@@ -35,7 +35,7 @@ class AmericanMeetingCorpus(AbstractDataset):
 
 	class Dialogue:
 		def __init__(self, transcript):
-			self.id = transcript.conversation_no
+			self.id = "ami_" + str(transcript.conversation_no)
 			self.utterances = []
 			for id, utterance in enumerate(transcript.utterances):
 				self.utterances.append(AmericanMeetingCorpus.Utterance(id, utterance))

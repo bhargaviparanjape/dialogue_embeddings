@@ -26,7 +26,7 @@ class MeetingRecoder(AbstractDataset):
 
 	class Dialogue:
 		def __init__(self, transcript):
-			self.id = transcript.conversation_id
+			self.id = "mrda_" + str(transcript.conversation_id)
 			self.conversation_length = len(transcript.utterances)
 			self.utterances = []
 			for utterance in transcript.utterances:
