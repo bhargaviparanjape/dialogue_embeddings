@@ -17,8 +17,6 @@ from multiprocessing import Pool
 def average_embeddings(embeddings, mask):
 	output = (embeddings*mask.unsqueeze(2)).sum(1) / mask.sum(1).unsqueeze(1)
 	output[output != output] = 0
-	if torch.cuda.is_available():
-		output = output.cpu()
 	return output.data.numpy().tolist()
 
 def process_conversation(conversation):
@@ -28,8 +26,8 @@ def process_conversation(conversation):
 		conversation_dict["id"] = conversation_id
 		utterances = [u.tokens for u in conversation.utterances]
 		character_ids = batch_to_ids(utterances)
-		embeddings = FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024)
-		mask = ByteTensor(character_ids.shape[0], character_ids.shape[1])
+		embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024)
+		mask = torch.ByteTensor(character_ids.shape[0], character_ids.shape[1])
 		for i in range(0, character_ids.shape[0], 20):
 			dict = ee(character_ids[i:i + 20].unsqueeze(0))
 			embeddings[i:i + 20] = dict['elmo_representations'][0]
