@@ -6,7 +6,7 @@ import nltk
 import codecs
 
 src_dirname = os.path.dirname(os.path.realpath(__file__))
-CALLHOME_TRANSCRIPTION_DIRECTORY = os.path.join(src_dirname, "callhome/eng")
+CALLHOME_TRANSCRIPTION_DIRECTORY = os.path.join(src_dirname, "callhome_eng/eng")
 
 class CorpusReader:
 	def __init__(self, src_dirname):

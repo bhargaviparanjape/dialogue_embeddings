@@ -31,6 +31,7 @@ class CallHomeEnglish(AbstractDataset):
 		self.total_length = 0
 		self.label_set_size = 0
 		self.vocabulary = Vocabulary()
+		self.label_set_size = 0
 
 		dataset = []
 		for transcript in corpus.iter_transcripts(display_progress=True):

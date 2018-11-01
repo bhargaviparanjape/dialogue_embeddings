@@ -9,3 +9,6 @@ output/*
 output1/*
 profile_logs/*
 src_archive/*
+*.txt
+*.mdl
+*.log

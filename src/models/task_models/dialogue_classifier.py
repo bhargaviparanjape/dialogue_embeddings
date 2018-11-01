@@ -305,7 +305,7 @@ class DialogueClassifierNetwork(nn.Module):
 				 "num_layers": args.output_num_layers[0], }
 		self.current_dl_trasnformer1 = model_factory.get_model_by_name(args.output_layer[0], args, kwargs=dict_)
 		self.current_dl_trasnformer2 = model_factory.get_model_by_name(args.output_layer[0], args, kwargs=dict_)
-		dict_ = {"input_size": args.embed_size, "hidden_size": args.output_hidden_size, "output_size": 1,
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size, "output_size": 1,
 				 "num_layers": args.output_num_layers[0], }
 		self.next_dl_trasnformer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
 		self.prev_dl_trasnformer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
@@ -326,10 +326,10 @@ class DialogueClassifierNetwork(nn.Module):
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 
-		# conversation_encoded_forward = conversation_encoded[:,0,:]
-		# conversation_encoded_backward = conversation_encoded[:, 1, :]
-		conversation_encoded_forward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
-		conversation_encoded_backward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		conversation_encoded_forward = conversation_encoded[:,0,:]
+		conversation_encoded_backward = conversation_encoded[:, 1, :]
+		#conversation_encoded_forward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		#conversation_encoded_backward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
 
 		conversation_encoded_forward_reassembled = conversation_encoded_forward.view(conversation_batch_size,
 														max_num_utterances_batch, conversation_encoded_forward.shape[1])
@@ -353,10 +353,10 @@ class DialogueClassifierNetwork(nn.Module):
 		transformed_current2 = self.current_dl_trasnformer2(conversation_encoded_current2)
 
 
-		# transformed_next = self.next_dl_trasnformer(conversation_encoded_next)
-		# transformed_prev = self.prev_dl_trasnformer(conversation_encoded_previous)
-		transformed_next = self.next_dl_trasnformer(utterance_encodings_next)
-		transformed_prev = self.prev_dl_trasnformer(utterance_encodings_prev)
+		transformed_next = self.next_dl_trasnformer(conversation_encoded_next)
+		transformed_prev = self.prev_dl_trasnformer(conversation_encoded_previous)
+		# transformed_next = self.next_dl_trasnformer(utterance_encodings_next)
+		# transformed_prev = self.prev_dl_trasnformer(utterance_encodings_prev)
 
 		# Output layer: Generate Scores for next and prev utterances
 		next_logits = torch.bmm(transformed_current1, transformed_next.transpose(2, 1))
@@ -392,10 +392,10 @@ class DialogueClassifierNetwork(nn.Module):
 		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 
-		# conversation_encoded_forward = conversation_encoded[:,0,:]
-		# conversation_encoded_backward = conversation_encoded[:, 1, :]
-		conversation_encoded_forward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
-		conversation_encoded_backward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		conversation_encoded_forward = conversation_encoded[:,0,:]
+		conversation_encoded_backward = conversation_encoded[:, 1, :]
+		#conversation_encoded_forward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		#conversation_encoded_backward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
 
 		conversation_encoded_forward_reassembled = conversation_encoded_forward.view(conversation_batch_size,
 												max_num_utterances_batch, conversation_encoded_forward.shape[1])
@@ -415,10 +415,10 @@ class DialogueClassifierNetwork(nn.Module):
 		transformed_current1 = self.current_dl_trasnformer1(conversation_encoded_current1)
 		transformed_current2 = self.current_dl_trasnformer2(conversation_encoded_current2)
 
-		# transformed_next = self.next_dl_trasnformer(conversation_encoded_next)
-		# transformed_prev = self.prev_dl_trasnformer(conversation_encoded_previous)
-		transformed_next = self.next_dl_trasnformer(utterance_encodings_next)
-		transformed_prev = self.prev_dl_trasnformer(utterance_encodings_prev)
+		transformed_next = self.next_dl_trasnformer(conversation_encoded_next)
+		transformed_prev = self.prev_dl_trasnformer(conversation_encoded_previous)
+		# transformed_next = self.next_dl_trasnformer(utterance_encodings_next)
+		# transformed_prev = self.prev_dl_trasnformer(utterance_encodings_prev)
 
 		# Output layer: Generate Scores for next and prev utterances
 		next_logits = torch.bmm(transformed_current1, transformed_next.transpose(2, 1))

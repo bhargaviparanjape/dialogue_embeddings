@@ -18,11 +18,6 @@ class MultiLayerPerceptron(nn.Module):
 		# self.input_size = args.hidden_size * 2
 		# self.hidden_size = args.output_hidden_size
 		# self.output_size = args.output_size
-		# self.network = nn.Sequential(
-		# 	nn.Linear(self.input_size, self.hidden_size),
-		# 	nn.ReLU(),
-		# 	nn.Linear(self.hidden_size, self.output_size),
-		# )
 
 		self.network = nn.ModuleList()
 		for i in range(self.num_layers):

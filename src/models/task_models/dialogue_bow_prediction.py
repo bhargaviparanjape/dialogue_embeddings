@@ -59,6 +59,8 @@ class DialogueBowNetwork(nn.Module):
 
 		## Average loss for next and previous conversations
 		loss = (next_loss + prev_loss) / 2
+		#loss = next_loss
+
 
 		return loss
 
@@ -78,11 +80,11 @@ class DialogueBowNetwork(nn.Module):
 
 		## Maximum Values above a threshold hyperparameter
 		## Loop over batch (??)
-		# next_predictions = torch.sort(next_vocab_probabilities, descending=True)[0][:,]
-		# prev_predictions = torch.sort(prev_vocab_probabilities, descending=True)[0][:,]
+		next_predictions = torch.sort(next_vocab_probabilities, descending=True)[0][:,]
+		prev_predictions = torch.sort(prev_vocab_probabilities, descending=True)[0][:,]
 
 		return next_vocab_probabilities, prev_vocab_probabilities
-
+		# return next_vocab_probabilities
 
 
 #################################################
@@ -146,6 +148,7 @@ class DialogueClassifier(AbstractModel):
 		# Run forward
 		batch_size, *inputs = self.vectorize(inputs, mode = "test")
 		scores_next, scores_prev = self.network.evaluate(*inputs)
+		# scores_next = self.network.evaluate(*inputs)
 
 		# Convert to CPU
 		if self.args.use_cuda:
@@ -159,6 +162,7 @@ class DialogueClassifier(AbstractModel):
 
 		# Mask inputs
 		return [scores_next, scores_prev], input_mask
+		# return [scores_next], input_mask
 
 
 	def target(self, inputs):

@@ -1,7 +1,7 @@
 import argparse,logging
 import json,os,sys
 
-MAX_VOCAB_LENGTH = 5000
+MAX_VOCAB_LENGTH = 20000
 
 def str2bool(v):
 	return v.lower() in ('yes', 'true', 't', '1', 'y')
@@ -14,7 +14,7 @@ def add_args(parser):
 	runtime.add_argument("--cuda", action="store_true", default=True)
 	runtime.add_argument("--parallel", action="store_true", default=False)
 	runtime.add_argument("--seed", type=int, default=0)
-	runtime.add_argument("--data_workers", type=int, default=1)
+	runtime.add_argument("--data-workers", type=int, default=1)
 	runtime.add_argument("--truncate-dataset", action="store_true", default=False)
 	runtime.add_argument("--limit-vocabulary", action="store_true", default=False)
 	runtime.add_argument("--log-level", type=str, default=logging.INFO)
