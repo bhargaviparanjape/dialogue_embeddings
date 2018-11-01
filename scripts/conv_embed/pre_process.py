@@ -3,12 +3,13 @@ from os.path import dirname, realpath
 import numpy as np
 import torch
 import random
-sys.path.append(dirname(dirname(realpath(__file__))))
+sys.path.append(dirname(dirname(dirname(realpath(__file__)))))
 from src.utils import global_parameters
 from src.learn import config as train_config
 from src.models import config as model_config
 from src.dataloaders import factory as dataloader_factory
 from allennlp.modules.elmo import Elmo, batch_to_ids
+from src.utils.utility_functions import LongTensor,ByteTensor
 import json
 from src.utils import global_parameters
 from multiprocessing import Pool
@@ -16,6 +17,8 @@ from multiprocessing import Pool
 def average_embeddings(embeddings, mask):
 	output = (embeddings*mask.unsqueeze(2)).sum(1) / mask.sum(1).unsqueeze(1)
 	output[output != output] = 0
+    if torch.cuda.is_available():
+        output = output.cpu()
 	return output.data.numpy().tolist()
 
 def process_conversation(conversation):
@@ -25,8 +28,8 @@ def process_conversation(conversation):
 		conversation_dict["id"] = conversation_id
 		utterances = [u.tokens for u in conversation.utterances]
 		character_ids = batch_to_ids(utterances)
-		embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024)
-		mask = torch.Tensor(character_ids.shape[0], character_ids.shape[1])
+		embeddings = FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024)
+		mask = ByteTensor(character_ids.shape[0], character_ids.shape[1])
 		for i in range(0, character_ids.shape[0], 20):
 			dict = ee(character_ids[i:i + 20].unsqueeze(0))
 			embeddings[i:i + 20] = dict['elmo_representations'][0]
@@ -46,6 +49,8 @@ def get_pretrained_embeddings(args, dataset):
 
 	# Caution: This object can become quite large(Handle!)
 	elmo_data = job_pool.map(process_conversation, job_data)
+    job_pool.close()
+    job_pool.join()
 
 	with open(args.output_path , "w+") as output_path:
 		for point in elmo_data:
