@@ -19,40 +19,58 @@ def average_embeddings(embeddings, mask):
 	output[output != output] = 0
 	return output.data.numpy().tolist()
 
-def process_conversation(conversation):
+def process_conversation(data):
+		gpu_no = data[0]
+		conversation = data[1]
 		conversation_dict = {}
 		conversation_id = conversation.id
 		print(conversation_id)
 		conversation_dict["id"] = conversation_id
 		utterances = [u.tokens for u in conversation.utterances]
 		character_ids = batch_to_ids(utterances)
-		embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024)
-		mask = torch.ByteTensor(character_ids.shape[0], character_ids.shape[1])
-		for i in range(0, character_ids.shape[0], 20):
-			dict = ee(character_ids[i:i + 20].unsqueeze(0))
-			embeddings[i:i + 20] = dict['elmo_representations'][0]
-			mask[i:i + 20] = dict['mask']
-		if args.utterance_encoder == "avg":
-			conversation_embeddings = average_embeddings(embeddings, mask)
-			conversation_dict["embeddings"] = conversation_embeddings
+		with torch.cuda.device(gpu_no):
+			embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024)
+			mask = torch.Tensor(character_ids.shape[0], character_ids.shape[1])
+			for i in range(0, character_ids.shape[0], 20):
+				dict = ee(character_ids[i:i + 20].unsqueeze(0))
+				embeddings[i:i + 20] = dict['elmo_representations'][0]
+				mask[i:i + 20] = dict['mask']
+			if args.utterance_encoder == "avg":
+				conversation_embeddings = average_embeddings(embeddings, mask)
+				conversation_dict["embeddings"] = conversation_embeddings
 		return conversation_dict
 
 def get_pretrained_embeddings(args, dataset):
 	job_pool = Pool(args.data_workers)
 	job_data = []
+	num_gpus = torch.cuda.device_count()
 
+	assigned_gpu = 0
 	for sub_dataset in [dataset.train_dataset, dataset.valid_dataset, dataset.test_dataset]:
+		## Assign Available GPU in Round robin order
 		for conversation in sub_dataset:
-			job_data.append(conversation)
+			job_data.append([assigned_gpu, conversation])
+			assigned_gpu += 1
+			if assigned_gpu == num_gpus:
+				assigned_gpu = 0
 
 	# Caution: This object can become quite large(Handle!)
-	elmo_data = job_pool.map(process_conversation, job_data)
-	job_pool.close()
-	job_pool.join()
+	# elmo_data = job_pool.map(process_conversation, job_data)
+	# job_pool.close()
+	# job_pool.join()
+	#
+	#
+	# with open(args.output_path , "w+") as output_path:
+	# 	for point in elmo_data:
+	# 		output_path.write(json.dumps((point) + "\n"))
 
-	with open(args.output_path , "w+") as output_path:
-		for point in elmo_data:
-			output_path.write(json.dumps((point) + "\n"))
+	## CPU MULTIPROCESSING
+	with open(args.output_path, "w+") as output_path:
+		for result in job_pool.imap(process_conversation, job_data, chunksize=3):
+			output_path.write(json.dumps((result) + "\n"))
+
+	## GPU MULTIPROCESSING
+	## LOCK on GPU
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(
