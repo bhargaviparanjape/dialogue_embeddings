@@ -86,7 +86,7 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 
 	def get_dataloader(self, args, dataset):
 
-		def create_snippets(dataset, vocabulary):
+		def create_snippets(dataset, vocabulary, mode="train"):
 			snippet_bucket = []
 			snippet_bucket_length = 0
 			snippet_lengths = []
@@ -134,15 +134,18 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 
 
 
-			# sampling all snippets of all conversations at once
-			# sampler = SortedBatchSampler(snippet_lengths, args.batch_size, shuffle=True)
-			# snippet dictionary that connects id to the snippets belonging to that ID
-			sampler = SingleSnippetSampler((id_snippet_dict, snippet_lengths), args.batch_size, shuffle=True)
+			# sampling all snippets of all conversations at once for test time and only sampling a few during training time
+			if mode == "train":
+				sampler = SingleSnippetSampler((id_snippet_dict, snippet_lengths), args.batch_size, shuffle=True)
+				batch_size = args.batch_size
+			else:
+				sampler = SortedBatchSampler(snippet_lengths, args.batch_size, shuffle=True)
+				batch_size = args.eval_batch_size
 
 			batcher = SnippetBatcher(args, vocabulary)
 			loader = torch.utils.data.DataLoader(
 				snippet_bucket,
-				batch_size=args.batch_size,
+				batch_size=batch_size,
 				sampler= sampler,
 				num_workers=args.data_workers,
 				collate_fn= batcher.batchify,
@@ -150,13 +153,13 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 			)
 			return loader
 		if self.mode == "train":
-			train_loader = create_snippets(dataset.train_dataset, dataset.vocabulary)
-			valid_loader = create_snippets(dataset.valid_dataset, dataset.vocabulary)
-			test_loader = create_snippets(dataset.test_dataset, dataset.vocabulary)
+			train_loader = create_snippets(dataset.train_dataset, dataset.vocabulary, mode = "train")
+			valid_loader = create_snippets(dataset.valid_dataset, dataset.vocabulary, mode = "test")
+			test_loader = create_snippets(dataset.test_dataset, dataset.vocabulary, mode = "test")
 			return train_loader, valid_loader, test_loader
 		elif self.mode == "test":
-			valid_loader = create_snippets(dataset.valid_dataset, dataset.vocabulary)
-			test_loader = create_snippets(dataset.test_dataset, dataset.vocabulary)
+			valid_loader = create_snippets(dataset.valid_dataset, dataset.vocabulary, mode = "test")
+			test_loader = create_snippets(dataset.test_dataset, dataset.vocabulary, mode = "test")
 			return None, valid_loader, test_loader
 
 class SnippetBatcher():

@@ -10,6 +10,7 @@ def add_args(parser):
 	training.add_argument("--num-epochs", type=int, default=20)
 	training.add_argument("--optimizer", type=str, default="adam")
 	training.add_argument("--batch-size", type=int, default=8)
+	training.add_argument("--eval-batch-size", type=int, default=32)
 	training.add_argument("--clip-threshold", type=float, default=10)
 	training.add_argument("--eval-interval", type=int, default=20)
 	training.add_argument("--patience", type=int, default=30)
