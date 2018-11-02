@@ -15,25 +15,27 @@ def average_embeddings(embeddings, mask):
 def process_conversation(data):
 	gpu_no = data[0]
 	func = data[1]
-	conversation = data[2]
+	conversation_ids = data[2]
 	ee = data[3]
-	conversation_dict = {}
-	conversation_id = conversation.id
-	print(conversation_id)
-	conversation_dict["id"] = conversation_id
-	utterances = [u.tokens for u in conversation.utterances]
-	character_ids = func(utterances)
-	#with torch.cuda.device(gpu_no):
-	#with lock:
-	embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024).cuda(gpu_no)
-	mask = torch.Tensor(character_ids.shape[0], character_ids.shape[1]).cuda(gpu_no)
-	for i in range(0, character_ids.shape[0], 20):
-		dict = ee(character_ids[i:i + 20].unsqueeze(0))
-		embeddings[i:i + 20] = dict['elmo_representations'][0]
-		mask[i:i + 20] = dict['mask']
-	conversation_embeddings = average_embeddings(embeddings, mask)
-	conversation_dict["embeddings"] = conversation_embeddings
-	return conversation_dict
+	batch_data = []
+	snippet_size = 40
+	for conversation in conversation_ids:
+		conversation_dict = {}
+		conversation_id = conversation.id
+		print(conversation_id)
+		conversation_dict["id"] = conversation_id
+		utterances = [u.tokens for u in conversation.utterances]
+		character_ids = func(utterances)
+		embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024).cuda(gpu_no)
+		mask = torch.Tensor(character_ids.shape[0], character_ids.shape[1]).cuda(gpu_no)
+		for i in range(0, character_ids.shape[0], snippet_size):
+			dict = ee(character_ids[i:i + snippet_size].unsqueeze(0))
+			embeddings[i:i + snippet_size] = dict['elmo_representations'][0]
+			mask[i:i + snippet_size] = dict['mask']
+		conversation_embeddings = average_embeddings(embeddings, mask)
+		conversation_dict["embeddings"] = conversation_embeddings
+		batch_data.append(conversation_dict)
+	return batch_data
 
 	
 if __name__ == "__main__":
@@ -53,41 +55,24 @@ if __name__ == "__main__":
 	import json
 	from src.utils import global_parameters
 
-	
-	
-
 	def get_pretrained_embeddings(args, dataset, ee):
 		job_pool = mp.Pool(args.data_workers, maxtasksperchild=1)
 		job_data = []
 		num_gpus = torch.cuda.device_count()
-		lock_set = []
-		#m = multiprocessing.Manager()
-		#for gpu in range(num_gpus):
-		#	lock_set.append(m.Lock())
-
 		assigned_gpu = 0
 		for sub_dataset in [dataset.train_dataset, dataset.valid_dataset, dataset.test_dataset]:
 			## Assign Available GPU in Round robin order
-			for conversation in sub_dataset:
-				job_data.append([assigned_gpu, batch_to_ids, conversation, ee])
+			for conversation_set in range(0, len(sub_dataset), 10):
+				job_data.append([assigned_gpu, batch_to_ids, sub_dataset[conversation_set:conversation_set+10], ee])
 				assigned_gpu += 1
 				if assigned_gpu == num_gpus:
 					assigned_gpu = 0
 
-		# Caution: This object can become quite large(Handle!)
-		# elmo_data = job_pool.map(process_conversation, job_data)
-		# job_pool.close()
-		# job_pool.join()
-		#
-		#
-		# with open(args.output_path , "w+") as output_path:
-		# 	for point in elmo_data:
-		# 		output_path.write(json.dumps((point) + "\n"))
-
 		## CPU MULTIPROCESSING
 		with open(args.output_path, "w+") as output_path:
 			for result in job_pool.imap(process_conversation, job_data):
-				output_path.write(json.dumps(result) + "\n")
+				for r in result:
+					output_path.write(json.dumps(r) + "\n")
 
 	parser = argparse.ArgumentParser(
 			'Preproces Data',
