@@ -116,6 +116,7 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 						snippet["id"] = conversation.id
 						snippet_utterences = padded_utterances[i : i+ self.conversation_size]
 						snippet_range = padded_range[i : i+ self.conversation_size]
+						## Pull Data to the front of the snippet
 						if i < self.conversation_size - 1:
 							snippet_utterences = snippet_utterences[self.conversation_size-i-1:] + snippet_utterences[0:self.conversation_size-i-1]
 							snippet_range = snippet_range[self.conversation_size-i-1:] + snippet_range[0:self.conversation_size-i-1]

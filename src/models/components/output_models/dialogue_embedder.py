@@ -21,8 +21,8 @@ class DialogueEmbedder(nn.Module):
 			self.token_encoder = model_factory.get_model_by_name(args.token_encoder, args)
 		if not args.fixed_utterance_encoder:
 			self.utterance_encoder = model_factory.get_model_by_name(args.utterance_encoder, args)
-		conversation_dict = {"input_size" : args.embed_size, "hidden_size" : args.hidden_size, "num_layers": args.num_layers}
-		self.conversation_encoder = model_factory.get_model_by_name(args.conversation_encoder, args, kwargs = conversation_dict)
+		# conversation_dict = {"input_size" : args.embed_size, "hidden_size" : args.hidden_size, "num_layers": args.num_layers}
+		self.conversation_encoder = model_factory.get_model_by_name(args.conversation_encoder, args)
 
 
 	def forward(self, *input):
@@ -50,3 +50,5 @@ class DialogueEmbedder(nn.Module):
 		model_parameters = parser.add_argument_group("Model Parameters")
 		model_parameters.add_argument("--hidden-size", type=int)
 		model_parameters.add_argument("--num-layers", type=int)
+		model_parameters.add_argument("--cell-size", type=int)
+		model_parameters.add_argument("--requires-grad", action="store_true", default=False)

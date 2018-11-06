@@ -10,6 +10,7 @@ import src.models.task_models.dialogue_decoder
 import src.models.components.token_encoders.token_encoders
 import src.models.components.utterance_encoders.utterance_encoders
 import src.models.components.conversation_encoders.hierarchical_encoder
+import src.models.components.conversation_encoders.stacked_bilstm_highway
 import src.models.components.conversation_encoders.bilstm
 import src.models.components.output_models.dialogue_embedder
 import src.models.components.output_models.bilinear_scorer
