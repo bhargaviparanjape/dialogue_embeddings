@@ -137,7 +137,9 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 
 			# sampling all snippets of all conversations at once for test time and only sampling a few during training time
 			if mode == "train":
-				sampler = SingleSnippetSampler((id_snippet_dict, snippet_lengths), args.batch_size, shuffle=True)
+				# sampler = SingleSnippetSampler((id_snippet_dict, snippet_lengths), args.batch_size, shuffle=True)
+				# introduces sampling errors
+				sampler = SortedBatchSampler(snippet_lengths, args.batch_size, shuffle=True)
 				batch_size = args.batch_size
 			else:
 				sampler = SortedBatchSampler(snippet_lengths, args.batch_size, shuffle=True)

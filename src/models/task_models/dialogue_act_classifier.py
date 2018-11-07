@@ -259,9 +259,9 @@ class DialogueActClassifierNetwork(nn.Module):
 
 		## Define class network
 		## output labels size
-		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size[0], "num_layers" : args.output_num_layers[0],
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size, "num_layers" : args.output_num_layers,
 							 "output_size": args.output_size}
-		self.classifier = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
+		self.classifier = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
 
 		## Define loss function: Custom masked entropy
 
@@ -274,7 +274,7 @@ class DialogueActClassifierNetwork(nn.Module):
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
 		# Rejoin both directions
-		conversation_encoded = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		conversation_encoded, utterance_encodings = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
 
 		# Reassemble the conversations
 		conversation_encoded_reassembled = conversation_encoded.view(conversation_batch_size,
@@ -304,7 +304,7 @@ class DialogueActClassifierNetwork(nn.Module):
 	def evaluate(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch] = input
 
-		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+		conversation_encoded, utterance_encodings = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 

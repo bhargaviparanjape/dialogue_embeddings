@@ -54,9 +54,9 @@ class SwitchBoard(AbstractDataset):
 
 		## 1155 transcribed datapoints ; 1115, 19, 21 split
 		if args.truncate_dataset:
-			self.train_dataset = dataset[:15]
-			self.valid_dataset = dataset[15:20]
-			self.test_dataset = dataset[20:]
+			self.train_dataset = dataset[:5]
+			self.valid_dataset = dataset[5:8]
+			self.test_dataset = dataset[8:10]
 		else:
 			##TODO: this split adheres to numbers reporteed by Schriberg et. al., but ideally cross-validation should be done
 			self.train_dataset = dataset[:1115]
@@ -67,9 +67,6 @@ class SwitchBoard(AbstractDataset):
 		for data_point in self.train_dataset:
 			for utterance in data_point.utterances:
 				self.vocabulary.add_and_get_indices(utterance.tokens)
-
-		if args.limit_vocabulary:
-			self.vocabulary.truncate()
 
 		## create character vocabulary
 		self.vocabulary.get_character_vocab()

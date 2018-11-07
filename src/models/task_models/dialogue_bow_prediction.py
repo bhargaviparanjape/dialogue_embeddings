@@ -337,7 +337,7 @@ class DialogueBowNetwork(nn.Module):
 		self.args = args
 
 		## Define class network
-		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size, "num_layers" : args.output_num_layers,
+		dict_ = {"input_size": args.output_input_size + args.embed_size, "hidden_size": args.output_hidden_size, "num_layers" : args.output_num_layers,
 				 "output_size": args.output_size}
 		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
 		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
@@ -356,8 +356,14 @@ class DialogueBowNetwork(nn.Module):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch,
 		gold_bow, gold_mask] = input
 
-		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
+		conversation_encoded, utterance_encodings = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
+
+		utterance_encodings = utterance_encodings.view(conversation_batch_size, max_num_utterances_batch,
+		                                               utterance_encodings.shape[1])
+		utterance_encodings_next = utterance_encodings[:, 0:-1, :].contiguous().view(-1, utterance_encodings.shape[-1])
+		utterance_encodings_prev = utterance_encodings[:, 1:, :].contiguous().view(-1, utterance_encodings.shape[-1])
 
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 		conversation_encoded_forward = conversation_encoded[:,0,:]
@@ -397,8 +403,9 @@ class DialogueBowNetwork(nn.Module):
 		bow_previous = bow_previous.view(bow_previous.shape[0]*bow_previous.shape[1], -1)
 
 		## Get BOW Score
-		next_vocab_scores = self.next_bow_scorer(conversation_encoded_current1)
-		prev_vocab_scores = self.prev_bow_scorer(conversation_encoded_current2)
+		## Utterrence scores are also joint in for propagation
+		next_vocab_scores = self.next_bow_scorer(torch.cat((conversation_encoded_current1, utterance_encodings_next), 1))
+		prev_vocab_scores = self.prev_bow_scorer(torch.cat((conversation_encoded_current2, utterance_encodings_prev), 1))
 
 		## Computing custom masked cross entropy
 		next_loss = self.multilabel_cross_entropy(next_vocab_scores, bow_next, conversation_mask_next)
@@ -412,12 +419,17 @@ class DialogueBowNetwork(nn.Module):
 	def evaluate(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch] = input
 
-		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+		conversation_encoded, utterance_encodings = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 		conversation_encoded_forward = conversation_encoded[:, 0, :]
 		conversation_encoded_backward = conversation_encoded[:, 1, :]
+
+		utterance_encodings = utterance_encodings.view(conversation_batch_size, max_num_utterances_batch,
+		                                               utterance_encodings.shape[1])
+		utterance_encodings_next = utterance_encodings[:, 0:-1, :].contiguous().view(-1, utterance_encodings.shape[-1])
+		utterance_encodings_prev = utterance_encodings[:, 1:, :].contiguous().view(-1, utterance_encodings.shape[-1])
 
 		# Reassemble into conversations
 		conversation_encoded_forward_reassembled = conversation_encoded_forward.view(conversation_batch_size,
@@ -440,8 +452,10 @@ class DialogueBowNetwork(nn.Module):
 		conversation_encoded_current2 = conversation_encoded_current2.view(conversation_encoded_current2.shape[0] *
 																		   conversation_encoded_current2.shape[1], -1)
 		## Get BOW Score
-		next_vocab_scores = self.next_bow_scorer(conversation_encoded_current1)
-		prev_vocab_scores = self.prev_bow_scorer(conversation_encoded_current2)
+		next_vocab_scores = self.next_bow_scorer(
+			torch.cat((conversation_encoded_current1, utterance_encodings_next), 1))
+		prev_vocab_scores = self.prev_bow_scorer(
+			torch.cat((conversation_encoded_current2, utterance_encodings_prev), 1))
 
 		next_vocab_probabilities = F.softmax(next_vocab_scores, dim=1)
 		prev_vocab_probabilities = F.softmax(prev_vocab_scores, dim=1)

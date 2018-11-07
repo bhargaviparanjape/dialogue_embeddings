@@ -15,9 +15,6 @@ class MultiLayerPerceptron(nn.Module):
 		self.hidden_size = kwargs["kwargs"]["hidden_size"]
 		self.output_size = kwargs["kwargs"]["output_size"]
 		self.num_layers = kwargs["kwargs"]["num_layers"]
-		# self.input_size = args.hidden_size * 2
-		# self.hidden_size = args.output_hidden_size
-		# self.output_size = args.output_size
 
 		self.network = nn.ModuleList()
 		for i in range(self.num_layers):

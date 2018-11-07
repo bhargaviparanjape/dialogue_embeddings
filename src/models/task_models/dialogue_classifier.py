@@ -92,8 +92,6 @@ class DialogueClassifierNetwork(nn.Module):
 
 		return next_predictions, prev_predictions
 
-
-
 #################################################
 ############### NETWORK WRAPPER #################
 #################################################
@@ -301,30 +299,32 @@ class DialogueClassifierNetwork(nn.Module):
 		self.dialogue_embedder = DialogueEmbedder(args)
 
 		## Define class networkict_
-		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size, "output_size": 1,
-				 "num_layers": args.output_num_layers[0], }
-		self.current_dl_trasnformer1 = model_factory.get_model_by_name(args.output_layer[0], args, kwargs=dict_)
-		self.current_dl_trasnformer2 = model_factory.get_model_by_name(args.output_layer[0], args, kwargs=dict_)
-		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size, "output_size": 1,
-				 "num_layers": args.output_num_layers[0], }
-		self.next_dl_trasnformer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
-		self.prev_dl_trasnformer = model_factory.get_model_by_name(args.output_layer[0], args, kwargs = dict_)
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size,
+		         "num_layers": args.output_num_layers,
+		         "output_size": 1}
+		self.current_dl_trasnformer1 = model_factory.get_model_by_name(args.output_layer, args, kwargs=dict_)
+		self.current_dl_trasnformer2 = model_factory.get_model_by_name(args.output_layer, args, kwargs=dict_)
+		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size,
+		         "num_layers": args.output_num_layers,
+		         "output_size": 1}
+		# dict_ =    {"input_size": args.embed_size, "hidden_size": args.output_hidden_size,
+		#          "num_layers": args.output_num_layers,
+		#          "output_size": 1}
+		self.next_dl_trasnformer = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
+		self.prev_dl_trasnformer = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
 
 
 	def forward(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch] = input
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
-		if self.args.fixed_utterance_encoder:
-			utterance_encodings = token_embeddings
-		else:
-			utterance_encodings = self.dialogue_embedder.utterance_encoder(token_embeddings, input_mask_variable)
-		utterance_encodings = utterance_encodings.view(conversation_batch_size, max_num_utterances_batch, utterance_encodings.shape[1])
+		conversation_encoded, utterance_encodings = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+													   max_num_utterances_batch])
+
+		utterance_encodings = utterance_encodings.view(conversation_batch_size, max_num_utterances_batch,
+		                                               utterance_encodings.shape[1])
 		utterance_encodings_next = utterance_encodings[:, 1:, :].contiguous()
 		utterance_encodings_prev = utterance_encodings[:, 0:-1, :].contiguous()
-
-		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
-													   max_num_utterances_batch])
 
 		conversation_encoded_forward = conversation_encoded[:,0,:]
 		conversation_encoded_backward = conversation_encoded[:, 1, :]
@@ -381,16 +381,13 @@ class DialogueClassifierNetwork(nn.Module):
 
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
-		if self.args.fixed_utterance_encoder:
-			utterance_encodings = token_embeddings
-		else:
-			utterance_encodings = self.dialogue_embedder.utterance_encoder(token_embeddings, input_mask_variable)
-		utterance_encodings = utterance_encodings.view(conversation_batch_size, max_num_utterances_batch, utterance_encodings.shape[1])
+		conversation_encoded, utterance_encodings = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+													   max_num_utterances_batch])
+
+		utterance_encodings = utterance_encodings.view(conversation_batch_size, max_num_utterances_batch,
+		                                               utterance_encodings.shape[1])
 		utterance_encodings_next = utterance_encodings[:, 1:, :].contiguous()
 		utterance_encodings_prev = utterance_encodings[:, 0:-1, :].contiguous()
-
-		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
-													   max_num_utterances_batch])
 
 		conversation_encoded_forward = conversation_encoded[:,0,:]
 		conversation_encoded_backward = conversation_encoded[:, 1, :]
@@ -515,7 +512,7 @@ class DialogueClassifier(AbstractModel):
 		self.vocabulary = vocabulary
 		## Embedding layer initialization depends upon vocabulary
 		if hasattr(self.token_encoder, "load_embeddings"):
-			self.token_encoder.load_embeddings(self.vocabulary.vocabulary)
+			self.token_encoder.load_embeddings(self.vocabulary)
 
 	@staticmethod
 	def add_args(parser):

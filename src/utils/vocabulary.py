@@ -35,17 +35,17 @@ class Vocabulary(object):
 		self.id_to_nertag = dict()
 		self.id_to_postag = dict()
 
-		self.counter = defaultdict(int)
+		self.counter = dict()
 
 	def add_and_get_index(self, word):
 		if word in self.vocabulary:
-			self.counter[word] = 1
+			self.counter[word] += 1
 			return self.vocabulary[word]
 		else:
 			length = len(self.vocabulary)
 			self.vocabulary[word] = length
 			self.id_to_vocab[length] = word
-			self.counter[word] += 1
+			self.counter[word] = 1
 			return length
 
 	def add_and_get_indices(self, words):
@@ -82,7 +82,8 @@ class Vocabulary(object):
 		return [self.char_to_id[word[i]] for i in range(len(word))]
 
 	def truncate(self):
-		vocabulary = sorted(self.vocabulary.items(), key=lambda k_v: k_v[1], reverse=True)
+		vocabulary = sorted(self.counter.items(), key=lambda k_v: k_v[1], reverse=True)
+		# vocabulary = sorted(self.vocabulary.items(), key=lambda k_v: k_v[1], reverse=True)
 		self.vocabulary = {}
 		self.id_to_vocab = {}
 		self.vocabulary[self.pad_token] = 0
@@ -105,6 +106,7 @@ class Vocabulary(object):
 				continue
 			self.vocabulary[item[0]] = id + 6
 			self.id_to_vocab[id + 6] = item[0]
+		self.counter = {k:v for k,v in vocabulary[:MAX_VOCAB_LENGTH]}
 
 
 	def get_word(self, index):
@@ -130,7 +132,9 @@ class Vocabulary(object):
 		unique_nertag = list(set(list(self.nertag_to_id.keys()) + list(other.nertag_to_id.keys())))
 		unique_postag = list(set(list(self.postag_to_id.keys()) + list(other.postag_to_id.keys())))
 
+		aggregated_counter = dict()
 		aggregated_vocab = Vocabulary()
+		aggregated_vocab.counter = dict()
 		aggregated_vocab.vocabulary = dict()
 		aggregated_vocab.id_to_vocab = dict()
 		aggregated_vocab.id_to_char = dict()
@@ -168,4 +172,17 @@ class Vocabulary(object):
 		for id in range(len(unique_postag)):
 			aggregated_vocab.postag_to_id[unique_postag[id]] = id
 			aggregated_vocab.id_to_postag[id] = unique_postag[id]
+
+		## for common words, add counters, otherwise retain infividual counters
+		for id in unique_words:
+			if id in self.std_tokens:
+				continue
+			if id in self.counter.keys() and id in other.counter.keys():
+				aggregated_counter[id] = self.counter[id] + other.counter[id]
+			elif id in self.counter.keys():
+				aggregated_counter[id] = self.counter[id]
+			else:
+				aggregated_counter[id] = other.counter[id]
+		aggregated_vocab.counter = aggregated_counter
+
 		return aggregated_vocab

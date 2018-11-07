@@ -78,8 +78,5 @@ class AmericanMeetingCorpus(AbstractDataset):
 			for utterance in data_point.utterances:
 				self.vocabulary.add_and_get_indices(utterance.tokens)
 
-		if args.limit_vocabulary:
-			self.vocabulary.truncate()
-
 		## create character vocabulary
 		self.vocabulary.get_character_vocab()

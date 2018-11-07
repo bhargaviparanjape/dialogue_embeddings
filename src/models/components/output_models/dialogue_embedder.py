@@ -42,7 +42,7 @@ class DialogueEmbedder(nn.Module):
 		# Reshape conversation back to batch
 		conversation_encoded_flattened = conversation_encoded.view(conversation_batch_size * max_num_utterances_batch,
 																   conversation_encoded.shape[2], conversation_encoded.shape[3])
-		return conversation_encoded_flattened
+		return conversation_encoded_flattened, utterance_encodings
 
 
 	@staticmethod
@@ -51,4 +51,4 @@ class DialogueEmbedder(nn.Module):
 		model_parameters.add_argument("--hidden-size", type=int)
 		model_parameters.add_argument("--num-layers", type=int)
 		model_parameters.add_argument("--cell-size", type=int)
-		model_parameters.add_argument("--requires-grad", action="store_true", default=False)
+		# model_parameters.add_argument("--requires-grad", action="store_true", default=True)

@@ -37,7 +37,6 @@ def RegisterLoader(loader_name):
 
 
 def get_dataset(args, logger):
-	## TODO: These are already lists now
 	datasets = args.datasets
 	aggregated_dataset = AbstractDataset()
 	for idx, dataset in enumerate(datasets):
@@ -51,6 +50,8 @@ def get_dataset(args, logger):
 			loaded_dataset = DATASET_REGISTRY[dataset_name](args, dataset_path)
 			aggregated_dataset += loaded_dataset
 
+	if args.limit_vocabulary:
+		aggregated_dataset.vocabulary.truncate()
 
 	return aggregated_dataset
 

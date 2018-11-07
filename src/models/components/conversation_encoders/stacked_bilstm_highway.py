@@ -56,7 +56,7 @@ class StackedBRNNHighway(_EncoderBase):
 		self.hidden_size = args.hidden_size
 		self.num_layers = args.num_layers
 		self.cell_size = args.cell_size
-		self.requires_grad = args.requires_grad
+		# self.requires_grad = args.requires_grad
 
 		forward_layers = []
 		backward_layers = []
@@ -137,7 +137,8 @@ class StackedBRNNHighway(_EncoderBase):
 			                                          stacked_sequence_output[0].size(-1))
 			stacked_sequence_output = torch.cat([stacked_sequence_output, zeros], 1)
 
-		self._update_states(final_states, restoration_indices)
+		# Is this step just book keeping or contributing to gradient
+		# self._update_states(final_states, restoration_indices)
 
 		# Restore the original indices and return the sequence.
 		# Has shape (batch_size, sequence_length, num_directions, hidden_size)
