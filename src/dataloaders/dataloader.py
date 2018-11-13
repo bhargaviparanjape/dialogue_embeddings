@@ -10,6 +10,7 @@ from tqdm import tqdm
 from src.utils.utility_functions import pad_seq
 from torch.utils.data.sampler import Sampler
 import torch
+import copy
 
 class AbstractDataLoader():
 	__metaclass__ = ABCMeta
@@ -244,11 +245,7 @@ class SnippetBatcher():
 
 		# Generate BOW Mask
 		max_bows_batch = max(len(l) for l in utterance_bow_list)
-		batch['utterance_bow_list'] = np.zeros((batch['size'], len(self.vocabulary.vocabulary)))
-		for i in range(batch['size']):
-			for j in utterance_bow_list[i]:
-				if j != 0:
-					batch['utterance_bow_list'][i][j] = 1
+		batch['utterance_bow_list'] = copy.deepcopy(utterance_bow_list)
 		utterance_bow_list_padded = np.array([pad_seq(l, max_bows_batch) for l in utterance_bow_list])
 
 

@@ -626,7 +626,14 @@ class DialogueClassifier(AbstractModel):
 		conversation_mask = variable(FloatTensor(batch['conversation_mask']))
 
 		## Prepare Ouput (If exists)
-		bow_list = LongTensor(batch['utterance_bow_list'])
+		batch_bow_list = np.zeros((batch['size'], len(self.vocabulary.vocabulary)))
+		for i in range(batch['size']):
+			for j in batch['utterance_bow_list'][i]:
+				if j != 0:
+					batch_bow_list[i][j] = 1
+		bow_list = LongTensor(batch_bow_list)
+
+
 		bow_mask = LongTensor(batch['utterance_bow_mask'])
 		bow_weights = (bow_list.float()*FloatTensor(self.vocabulary.inverse_utterance_frequency).unsqueeze(0))
 
