@@ -328,8 +328,8 @@ class DialogueClassifierNetwork(nn.Module):
 
 		conversation_encoded_forward = conversation_encoded[:,0,:]
 		conversation_encoded_backward = conversation_encoded[:, 1, :]
-		#conversation_encoded_forward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
-		#conversation_encoded_backward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		# conversation_encoded_forward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		# conversation_encoded_backward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
 
 		conversation_encoded_forward_reassembled = conversation_encoded_forward.view(conversation_batch_size,
 														max_num_utterances_batch, conversation_encoded_forward.shape[1])
@@ -391,8 +391,8 @@ class DialogueClassifierNetwork(nn.Module):
 
 		conversation_encoded_forward = conversation_encoded[:,0,:]
 		conversation_encoded_backward = conversation_encoded[:, 1, :]
-		#conversation_encoded_forward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
-		#conversation_encoded_backward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		# conversation_encoded_forward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		# conversation_encoded_backward = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
 
 		conversation_encoded_forward_reassembled = conversation_encoded_forward.view(conversation_batch_size,
 												max_num_utterances_batch, conversation_encoded_forward.shape[1])
@@ -502,6 +502,7 @@ class DialogueClassifier(AbstractModel):
 		next_predictions_binary = (next_predicted == correct).long()*next_mask
 		prev_predictions_binary = (prev_predicted == correct).long()*next_mask
 		prev_predictions_binary[prev_predictions_binary == 0] = 2
+		## Strict condition that both previous and next have to match exactly
 		correct = ((next_predictions_binary == prev_predictions_binary).long()*next_mask.long()).sum().numpy()
 		total = next_mask.sum().data.numpy()
 		metric_update_dict = {}

@@ -25,9 +25,6 @@ class NoEncoder(nn.Module):
 class BiLSTMEncoder(nn.Module):
 	def __init__(self, args, **kwargs):
 		super(BiLSTMEncoder, self).__init__()
-		# self.input_size = kwargs["kwargs"]["input_size"]
-		# self.hidden_size = kwargs["kwargs"]["hidden_size"]
-		# self.num_layers = kwargs["kwargs"]["num_layers"]
 		self.args = args
 		self.input_size = args.embed_size
 		self.hidden_size = args.hidden_size
@@ -57,12 +54,6 @@ class BiLSTMEncoder(nn.Module):
 		if outputs_unpacked.shape[1] != x.shape[1]:
 			print("Something up!")
 		return outputs_unpacked_directions, hidden
-
-	# @staticmethod
-	# def add_args(parser):
-	# 	model_parameters = parser.add_argument_group("BiLSTM Parameters")
-	# 	model_parameters.add_argument("--hidden-size", type=int)
-	# 	model_parameters.add_argument("--num-layers", type=int)
 
 
 

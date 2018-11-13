@@ -51,4 +51,5 @@ class DialogueEmbedder(nn.Module):
 		model_parameters.add_argument("--hidden-size", type=int)
 		model_parameters.add_argument("--num-layers", type=int)
 		model_parameters.add_argument("--cell-size", type=int)
+		model_parameters.add_argument("--num-heads", type=int)
 		# model_parameters.add_argument("--requires-grad", action="store_true", default=True)

@@ -1,5 +1,6 @@
 import torch
 import torch.multiprocessing as mp
+from src.utils.utility_functions import pad_seq
 try:
 	mp.set_start_method('spawn')
 except:
@@ -7,9 +8,14 @@ except:
 #from allennlp.modules.elmo import batch_to_ids
 
 def average_embeddings(embeddings, mask):
-		output = (embeddings*mask.unsqueeze(2)).sum(1) / mask.sum(1).unsqueeze(1)
-		output[output != output] = 0
-		return output.data.cpu().numpy().tolist()
+	output = (embeddings*mask.unsqueeze(2)).sum(1) / mask.sum(1).unsqueeze(1)
+	output[output != output] = 0
+	return output.data.cpu().numpy().tolist()
+
+def weighted_average_embeddings(embeddings, mask, idfs):
+	output = (embeddings * mask.unsqueeze(2)*idfs.unsqueeze(2)).sum(1) / mask.sum(1).unsqueeze(1)
+	output[output != output] = 0
+	return output.data.cpu().numpy().tolist()
 
 
 def process_conversation(data):
@@ -17,34 +23,45 @@ def process_conversation(data):
 	func = data[1]
 	conversation_ids = data[2]
 	ee = data[3]
+	idfs = data[4]
 	batch_data = []
 	snippet_size = 40
-	for conversation in conversation_ids:
+	for enum_, conversation in enumerate(conversation_ids):
 		conversation_dict = {}
 		conversation_id = conversation.id
 		print(conversation_id)
 		conversation_dict["id"] = conversation_id
 		utterances = [u.tokens for u in conversation.utterances]
 		character_ids = func(utterances)
-		embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024).cuda(gpu_no)
-		mask = torch.Tensor(character_ids.shape[0], character_ids.shape[1]).cuda(gpu_no)
+		if torch.cuda.is_available():
+			embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024).cuda(gpu_no)
+			# hidden_representations = torch.FloatTensor()
+			mask = torch.Tensor(character_ids.shape[0], character_ids.shape[1]).cuda(gpu_no)
+			idf_tensor = torch.FloatTensor(idfs[enum_]).cud(gpu_no)
+		else:
+			embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024)
+			mask = torch.Tensor(character_ids.shape[0], character_ids.shape[1])
+			idf_tensor = torch.FloatTensor(idfs[enum_])
 		for i in range(0, character_ids.shape[0], snippet_size):
 			dict = ee(character_ids[i:i + snippet_size].unsqueeze(0))
 			embeddings[i:i + snippet_size] = dict['elmo_representations'][0]
 			mask[i:i + snippet_size] = dict['mask']
+
 		conversation_embeddings = average_embeddings(embeddings, mask)
+		# Variant 1 : Try weighing the different words with idf so that information about hte msot important words is retained
+		# conversation_embeddings = weighted_average_embeddings(embeddings, mask, idf_tensor)
+		# Variant 2: Instead of average, provide the hidden representation of the elmo embeddings
+		# Not implemented
 		conversation_dict["embeddings"] = conversation_embeddings
 		batch_data.append(conversation_dict)
 	return batch_data
 
 	
 if __name__ == "__main__":
-	#mp.set_start_method('spawn')
-	import sys,logging,argparse,pdb
+	import sys,logging,argparse, pdb
 	from os.path import dirname, realpath
 	import numpy as np
 	import torch
-	import random
 	sys.path.append(dirname(dirname(dirname(realpath(__file__)))))
 	from src.utils import global_parameters
 	from src.learn import config as train_config
@@ -55,6 +72,11 @@ if __name__ == "__main__":
 	import json
 	from src.utils import global_parameters
 
+	def get_ids(sentence_list):
+		max_len = max([u.length for u in sentence_list])
+		ids = [pad_seq(dataset.vocabulary.get_indices(u.tokens), max_len) for u in sentence_list]
+		return ids
+
 	def get_pretrained_embeddings(args, dataset, ee):
 		job_pool = mp.Pool(args.data_workers, maxtasksperchild=1)
 		job_data = []
@@ -63,7 +85,9 @@ if __name__ == "__main__":
 		for sub_dataset in [dataset.train_dataset, dataset.valid_dataset, dataset.test_dataset]:
 			## Assign Available GPU in Round robin order
 			for conversation_set in range(0, len(sub_dataset), 10):
-				job_data.append([assigned_gpu, batch_to_ids, sub_dataset[conversation_set:conversation_set+10], ee])
+				batch_ids = [get_ids(conversation.utterances) for conversation in sub_dataset[conversation_set:conversation_set+10]]
+				batch_idfs = [dataset.vocabulary.inverse_utterance_frequency[np.array(ids)] for ids in batch_ids]
+				job_data.append([assigned_gpu, batch_to_ids, sub_dataset[conversation_set:conversation_set+10], ee, batch_idfs])
 				assigned_gpu += 1
 				if assigned_gpu == num_gpus:
 					assigned_gpu = 0
@@ -82,6 +106,7 @@ if __name__ == "__main__":
 	global_parameters.add_args(parser)
 	train_config.add_args(parser)
 	model_config.add_args(parser)
+	parser.add_argument('--weight-embeddings', action="store_true", default=False)
 	args = parser.parse_args()
 	global_parameters.add_config(args, sys.argv[1])
 
@@ -89,6 +114,7 @@ if __name__ == "__main__":
 	logger = logging.getLogger(__name__)
 
 	dataset = dataloader_factory.get_dataset(args, logger)
+	dataset.vocabulary.compute_inverse_frequency(dataset.utterance_length)
 
 	options_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json"
 	weight_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"

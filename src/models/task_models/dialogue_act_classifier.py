@@ -269,12 +269,12 @@ class DialogueActClassifierNetwork(nn.Module):
 	def forward(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch , gold_labels] = input
 
-		conversation_encoded = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+		conversation_encoded, utterance_encodings = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
 													   max_num_utterances_batch])
 		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
 
 		# Rejoin both directions
-		conversation_encoded, utterance_encodings = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+		conversation_encoded = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
 
 		# Reassemble the conversations
 		conversation_encoded_reassembled = conversation_encoded.view(conversation_batch_size,
@@ -282,9 +282,9 @@ class DialogueActClassifierNetwork(nn.Module):
 		gold_labels_reassembled = gold_labels.view(conversation_batch_size, max_num_utterances_batch)
 
 		# Mask (Only consider the dialogues)
-		dialogue_act_mask = conversation_mask[:, 2:].contiguous()
-		conversation_encoded_current = conversation_encoded_reassembled[:, 1:-1, :].contiguous()
-		gold_labels_current = gold_labels_reassembled[:, 1:-1].contiguous()
+		dialogue_act_mask = conversation_mask #[:, 2:].contiguous()
+		conversation_encoded_current = conversation_encoded_reassembled #[:, 1:-1, :].contiguous()
+		gold_labels_current = gold_labels_reassembled #[:, 1:-1].contiguous()
 
 
 		# Reflatten the choices, encodings, mask
@@ -293,7 +293,7 @@ class DialogueActClassifierNetwork(nn.Module):
 		labels_flattened = gold_labels_current.view(gold_labels_current.shape[0]*gold_labels_current.shape[1], -1)
 		mask_flattened = dialogue_act_mask.view(dialogue_act_mask.shape[0]*dialogue_act_mask.shape[1], -1)
 
-
+		## When a CRF is used, it returns the loss as well
 		label_logits = self.classifier(conversation_encoded_flattened)
 		label_log_probs_flat = F.log_softmax(label_logits, dim=1)
 		label_losses_flat = -torch.gather(label_log_probs_flat, dim=1, index=labels_flattened.view(-1, 1))
@@ -317,8 +317,8 @@ class DialogueActClassifierNetwork(nn.Module):
 																	 conversation_encoded.shape[1])
 
 		# Mask (Only consider the dialogues)
-		dialogue_act_mask = conversation_mask[:, 2:].contiguous()
-		conversation_encoded_current = conversation_encoded_reassembled[:, 1:-1, :].contiguous()
+		dialogue_act_mask = conversation_mask #[:, 2:].contiguous()
+		conversation_encoded_current = conversation_encoded_reassembled #[:, 1:-1, :].contiguous()
 
 		# Reflatten the choices, encodings, mask
 		conversation_encoded_flattened = conversation_encoded_current.view(
@@ -390,10 +390,10 @@ class DialogueActClassifier(AbstractModel):
 	def evaluate_metrics(self, predicted, target, mask, mode = "dev"):
 		# Named Metric List
 		batch_size = mask.shape[0]
-		mask = mask[:, 2:].contiguous()
+		# mask = mask[:, 2:].contiguous()
 		mask = mask.view(-1, 1).squeeze(1)
 		label_predicted = predicted[0]
-		label_correct = target[0].view(batch_size, -1)[:, 1:-1].contiguous().view(label_predicted.shape)
+		label_correct = target[0].view(batch_size, -1).view(label_predicted.shape) #[:, 1:-1].contiguous().view(label_predicted.shape)
 		predictions_binary = (label_predicted == label_correct)
 		correct = (predictions_binary.long()*mask.long()).sum().numpy()
 		total = mask.sum().data.numpy()
@@ -405,7 +405,7 @@ class DialogueActClassifier(AbstractModel):
 		self.vocabulary = vocabulary
 		## Embedding layer initialization depends upon vocabulary
 		if hasattr(self.token_encoder, "load_embeddings"):
-			self.token_encoder.load_embeddings(self.vocabulary.vocabulary)
+			self.token_encoder.load_embeddings(self.vocabulary)
 
 	def vectorize(self, batch, mode = "train"):
 		## TODO: Get single example, abstract out batchification

@@ -1,11 +1,15 @@
 from collections import defaultdict
 from src.utils.global_parameters import MAX_VOCAB_LENGTH
+import math
+import collections
+import numpy as np
 
 class Vocabulary(object):
 	def __init__(self, pad_token='<pad>', unk='<unk>', sos='<sos>', eos='<eos>', soc='<soc>', eoc='<eoc>'):
 
 		self.vocabulary = dict()
 		self.id_to_vocab = dict()
+		self.utterance_frequency = dict()
 		self.pad_token = pad_token
 		self.unk = unk
 		self.sos = sos
@@ -49,7 +53,16 @@ class Vocabulary(object):
 			return length
 
 	def add_and_get_indices(self, words):
-		return [self.add_and_get_index(word) for word in words]
+		indices = [self.add_and_get_index(word) for word in words]
+		# These words are over a single utterance;
+		# For each unique word; increas utterance count
+		for word in set(words):
+			index = self.get_index(word)
+			if index in self.utterance_frequency:
+				self.utterance_frequency[index] += 1
+			else:
+				self.utterance_frequency[index] = 1
+		return indices
 
 	def get_index(self, word):
 		return self.vocabulary.get(word, self.vocabulary[self.unk])
@@ -83,7 +96,6 @@ class Vocabulary(object):
 
 	def truncate(self):
 		vocabulary = sorted(self.counter.items(), key=lambda k_v: k_v[1], reverse=True)
-		# vocabulary = sorted(self.vocabulary.items(), key=lambda k_v: k_v[1], reverse=True)
 		self.vocabulary = {}
 		self.id_to_vocab = {}
 		self.vocabulary[self.pad_token] = 0
@@ -100,13 +112,14 @@ class Vocabulary(object):
 		self.id_to_vocab[3] = self.eos
 		self.id_to_vocab[4] = self.soc
 		self.id_to_vocab[5] = self.eoc
-		# TODO: Logic is wrong, even the major tokens are gettinf replaced
+		# Maintain uniform order of indices
 		for id, item in enumerate(vocabulary[:MAX_VOCAB_LENGTH]):
 			if item[0] in self.std_tokens:
 				continue
 			self.vocabulary[item[0]] = id + 6
 			self.id_to_vocab[id + 6] = item[0]
-		self.counter = {k:v for k,v in vocabulary[:MAX_VOCAB_LENGTH]}
+		self.counter = {k:self.counter[k] for k,v in vocabulary[:MAX_VOCAB_LENGTH]}
+		self.utterance_frequency = {self.vocabulary[k]: self.utterance_frequency[self.vocabulary[k]] for k, v in vocabulary[:MAX_VOCAB_LENGTH]}
 
 
 	def get_word(self, index):
@@ -121,6 +134,19 @@ class Vocabulary(object):
 	def pos_tag_size(self):
 		return len(self.postag_to_id)
 
+	def compute_inverse_frequency(self, total_num_utterances):
+		self.inverse_utterance_frequency = {}
+		max_num_utterances = max(self.utterance_frequency.values())
+		for key, value in self.utterance_frequency.items():
+			self.inverse_utterance_frequency[key] = 1/(1+ math.log(value +  1))
+			# self.inverse_utterance_frequency[key] = math.log(total_num_utterances/value)
+		for token in self.std_tokens:
+			## All standard tokens have the maximum frequency
+			self.inverse_utterance_frequency[self.vocabulary[token]] = 1/(1+ math.log(max_num_utterances + 1))
+			# self.inverse_utterance_frequency[self.vocabulary[token]] = math.log(total_num_utterances/max_num_utterances)
+		## All IDS are intact and in order, convert dictionary to list for easy indexing
+		self.inverse_utterance_frequency = np.array([v for k,v in sorted(self.inverse_utterance_frequency.items())])
+
 
 	def __add__(self, other):
 		## keys in both vocabularies
@@ -133,6 +159,7 @@ class Vocabulary(object):
 		unique_postag = list(set(list(self.postag_to_id.keys()) + list(other.postag_to_id.keys())))
 
 		aggregated_counter = dict()
+		aggregated_utterance_frequency = dict()
 		aggregated_vocab = Vocabulary()
 		aggregated_vocab.counter = dict()
 		aggregated_vocab.vocabulary = dict()
@@ -179,10 +206,16 @@ class Vocabulary(object):
 				continue
 			if id in self.counter.keys() and id in other.counter.keys():
 				aggregated_counter[id] = self.counter[id] + other.counter[id]
+				idx = self.vocabulary[id]
+				aggregated_utterance_frequency[idx] = self.utterance_frequency[id] + other.utterance_frequency[id]
 			elif id in self.counter.keys():
 				aggregated_counter[id] = self.counter[id]
+				idx = self.vocabulary[id]
+				aggregated_utterance_frequency[idx] = self.utterance_frequency[idx]
 			else:
 				aggregated_counter[id] = other.counter[id]
+				idx = other.vocabulary[id]
+				aggregated_utterance_frequency[idx] = other.utterance_frequency[idx]
 		aggregated_vocab.counter = aggregated_counter
-
+		aggregated_vocab.utterance_frequency = aggregated_utterance_frequency
 		return aggregated_vocab

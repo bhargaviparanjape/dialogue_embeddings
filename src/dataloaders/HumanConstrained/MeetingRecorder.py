@@ -69,3 +69,4 @@ class MeetingRecoder(AbstractDataset):
 
 		## create character vocabulary
 		self.vocabulary.get_character_vocab()
+		self.utterance_length = self.get_total_utterances()

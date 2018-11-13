@@ -13,6 +13,7 @@ def add_args(parser):
 	training.add_argument("--eval-batch-size", type=int, default=32)
 	training.add_argument("--clip-threshold", type=float, default=10)
 	training.add_argument("--eval-interval", type=int, default=20)
+	training.add_argument("--save-interval", type=int, default=1000)
 	training.add_argument("--patience", type=int, default=30)
 	training.add_argument("--conversation-size", type=int, default=32)
 

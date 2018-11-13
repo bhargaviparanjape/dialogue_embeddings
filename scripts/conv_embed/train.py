@@ -27,6 +27,8 @@ def init_model(args, dataset):
 		model = model_factory.get_model(model_args)
 		if args.pretrained_dialogue_embed_path is not None:
 			model.load(args.pretrained_dialogue_embed_path)
+		# utterance inverse probability computation
+		dataset.vocabulary.compute_inverse_frequency(dataset.utterance_length)
 		model.set_vocabulary(dataset.vocabulary)
 		model_list.append(model)
 	if args.multitask:

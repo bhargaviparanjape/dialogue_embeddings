@@ -1,7 +1,7 @@
 import argparse,logging
 import json,os,sys
 
-MAX_VOCAB_LENGTH = 500
+MAX_VOCAB_LENGTH = 20
 
 def str2bool(v):
 	return v.lower() in ('yes', 'true', 't', '1', 'y')
@@ -32,6 +32,7 @@ def add_args(parser):
 	files.add_argument("--pretrained-model-path", type=str, default=None)
 	files.add_argument("--pretrained-dialogue-embed-path", type=str, default=None)
 	files.add_argument("--output-path", type=str, default=None)
+	files.add_argument("--tensorboard-dir", type=str, default=None)
 
 	# Saving + loading
 	save_load = parser.add_argument_group('Saving/Loading')

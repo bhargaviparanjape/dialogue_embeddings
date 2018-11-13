@@ -14,7 +14,6 @@ import torch
 class AbstractDataLoader():
 	__metaclass__ = ABCMeta
 
-## Implement sampling of K conversation snippets from given conversation
 class SingleSnippetSampler(Sampler):
 	def __init__(self, data, batch_size, shuffle=True):
 		self.id_snippet_dict = data[0]
@@ -87,6 +86,12 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 	def get_dataloader(self, args, dataset):
 
 		def create_snippets(dataset, vocabulary, mode="train"):
+
+			if args.truncate_dataset:
+				for idx, conversation in enumerate(dataset):
+					random_short_length = random.sample(range(15,30),1)[0]
+					dataset[idx].utterances = conversation.utterances[:random_short_length]
+
 			snippet_bucket = []
 			snippet_bucket_length = 0
 			snippet_lengths = []
@@ -100,9 +105,9 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 				if length <= self.conversation_size:
 					snippet = {}
 					snippet["id"] = conversation.id
-					snippet["utterances"] = start_utterance + conversation.utterances + end_utterance
-					snippet["range"] = [-1] + list(range(0, length)) + [-1]
-					snippet["mask"] = [1]*(length+2)
+					snippet["utterances"] = conversation.utterances #end_utterance
+					snippet["range"] = list(range(0, length))
+					snippet["mask"] = [1]*(length)
 					snippet["length"] = len(snippet["utterances"])
 					snippets.append(snippet)
 					snippet_lengths.append(snippet["length"])
@@ -120,20 +125,28 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 						if i < self.conversation_size - 1:
 							snippet_utterences = snippet_utterences[self.conversation_size-i-1:] + snippet_utterences[0:self.conversation_size-i-1]
 							snippet_range = snippet_range[self.conversation_size-i-1:] + snippet_range[0:self.conversation_size-i-1]
-						snippet["utterances"] = start_utterance + snippet_utterences + dummy_utterance
-						snippet["range"] = [-1] + snippet_range + [-1]
-						end_index = [i for i,x in enumerate(snippet["range"]) if x == -1][1]
-						snippet["mask"] = [1] + [1 if snippet["range"][j] >= 0 else 0 for j in range(1,self.conversation_size+1)] + [0]
-						snippet["mask"][end_index] = 1
-						snippet["utterances"][end_index] = end_utterance[0]
+						snippet["utterances"] = snippet_utterences
+						snippet["range"] = snippet_range
+						# end_index = [i for i,x in enumerate(snippet["range"]) if x == -1][1]
+						snippet["mask"] = [1 if snippet["range"][j] >= 0 else 0 for j in range(self.conversation_size)]
+						# snippet["mask"][end_index] = 0
+						# snippet["utterances"][end_index] = end_utterance[0]
 						snippet["length"] = len(snippet["utterances"])
 						snippets.append(snippet)
+						## TODO: put actual length here
 						snippet_lengths.append(snippet["length"])
 				id_snippet_dict[conversation.id] = list(range(snippet_bucket_length, snippet_bucket_length + len(snippets)))
 				snippet_bucket += snippets
 				snippet_bucket_length += len(snippets)
 
-
+			# Create a small sample
+			if args.truncate_dataset:
+				if mode == "train":
+					snippet_bucket = snippet_bucket[:5]
+					snippet_lengths = snippet_lengths[:5]
+				else:
+					snippet_bucket = snippet_bucket[:2]
+					snippet_lengths = snippet_lengths[:2]
 
 			# sampling all snippets of all conversations at once for test time and only sampling a few during training time
 			if mode == "train":
@@ -227,17 +240,24 @@ class SnippetBatcher():
 			conversation_ranges.append(conversation["range"] + [-1] * (max_num_utterances - length))
 			conversation_mask.append(conversation["mask"] + [0] * (max_num_utterances - length))
 
+		batch['size'] = len(utterance_list)
+
 		# Generate BOW Mask
 		max_bows_batch = max(len(l) for l in utterance_bow_list)
-		utterance_bow_list = [pad_seq(l, max_bows_batch) for l in utterance_bow_list]
+		batch['utterance_bow_list'] = np.zeros((batch['size'], len(self.vocabulary.vocabulary)))
+		for i in range(batch['size']):
+			for j in utterance_bow_list[i]:
+				if j != 0:
+					batch['utterance_bow_list'][i][j] = 1
+		utterance_bow_list_padded = np.array([pad_seq(l, max_bows_batch) for l in utterance_bow_list])
+
 
 		batch['utterance_list'] = utterance_list
 		batch['utterance_word_ids'] = np.array(utterance_word_ids_list)
 		batch['utterance_ids_list'] = np.array(utterance_ids_list)
-		batch['utterance_bow_list'] = np.array(utterance_bow_list)
 		batch['input_mask'] = (1 * (batch['utterance_word_ids'] != 0))
 		batch['label'] = labels
-		batch['utterance_bow_mask'] = (1 * (batch['utterance_bow_list'] != 0))
+		batch['utterance_bow_mask'] = (1 * (utterance_bow_list_padded != 0))
 
 		batch['conversation_lengths'] = conversation_lengths
 		batch['conversation_ids'] = conversation_ids
@@ -246,7 +266,6 @@ class SnippetBatcher():
 		batch['max_utterance_length'] = max_utterance_length
 
 		return batch
-
 
 
 @RegisterBatcher('conversation_snippets')
@@ -401,7 +420,6 @@ class ConversationSnippetBatcher(AbstractDataLoader):
 			valid_batches = create_batches(dataset.valid_dataset, dataset.vocabulary)
 			test_batches = create_batches(dataset.test_dataset, dataset.vocabulary)
 			return None,valid_batches,test_batches
-
 
 
 ## all utterances in all conversations of a batch should be masked and each conversation in batch must have same length

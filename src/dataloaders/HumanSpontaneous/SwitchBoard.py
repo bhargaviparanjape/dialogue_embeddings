@@ -1,5 +1,3 @@
-import random
-
 from datasets.swda import swda
 from src.dataloaders.AbstractDataset import AbstractDataset
 from src.dataloaders.factory import RegisterDataset
@@ -20,7 +18,7 @@ class SwitchBoard(AbstractDataset):
 			self.label = DAMSL_TAGSET[utterance.damsl_act_tag().strip()] # index for DAMSL starts from 1
 			self.speaker = utterance.caller
 			#TODO: clean text before processing
-			self.tokens = utterance.text_words()
+			self.tokens = utterance.pos_words()
 			self.length = len(self.tokens)
 			self.pos = utterance.regularize_pos_lemmas()
 
@@ -50,13 +48,11 @@ class SwitchBoard(AbstractDataset):
 			dataset.append(SwitchBoard.Dialogue(transcript))
 
 
-		shuffled_dataset = random.shuffle(dataset)
-
 		## 1155 transcribed datapoints ; 1115, 19, 21 split
 		if args.truncate_dataset:
-			self.train_dataset = dataset[:5]
-			self.valid_dataset = dataset[5:8]
-			self.test_dataset = dataset[8:10]
+			self.train_dataset = dataset[:3]
+			self.valid_dataset = dataset[5:6]
+			self.test_dataset = dataset[20:]
 		else:
 			##TODO: this split adheres to numbers reporteed by Schriberg et. al., but ideally cross-validation should be done
 			self.train_dataset = dataset[:1115]
@@ -70,3 +66,4 @@ class SwitchBoard(AbstractDataset):
 
 		## create character vocabulary
 		self.vocabulary.get_character_vocab()
+		self.utterance_length = self.get_total_utterances()

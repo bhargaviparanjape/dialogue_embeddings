@@ -21,6 +21,7 @@ class AbstractDataset(data.Dataset):
     def __init__(self):
         self.name = ""
         self.total_length = 0
+        self.utterance_length = 0
         self.vocabulary = Vocabulary()
         self.train_dataset = []
         self.test_dataset = []
@@ -44,8 +45,15 @@ class AbstractDataset(data.Dataset):
         aggregated_dataset.train_dataset = self.train_dataset + other.train_dataset
         aggregated_dataset.test_dataset = self.test_dataset + other.test_dataset
         aggregated_dataset.valid_dataset = self.valid_dataset + other.valid_dataset
+        aggregated_dataset.utterance_length = self.utterance_length + other.utterance_length
 
         return aggregated_dataset
 
     def get_full_dataset(self):
         return self.train_dataset + self.valid_dataset + self.test_dataset
+
+    def get_total_utterances(self):
+        total = 0
+        for conversation in self.train_dataset + self.valid_dataset + self.test_dataset:
+            total += len(conversation.utterances)
+        return total

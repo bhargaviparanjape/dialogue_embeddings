@@ -56,6 +56,7 @@ class StackedBRNNHighway(_EncoderBase):
 		self.hidden_size = args.hidden_size
 		self.num_layers = args.num_layers
 		self.cell_size = args.cell_size
+		self.dropout = args.dropout
 		# self.requires_grad = args.requires_grad
 
 		forward_layers = []
@@ -77,14 +78,14 @@ class StackedBRNNHighway(_EncoderBase):
 													self.hidden_size,
 													self.cell_size,
 													go_forward,
-													0.0,
+                                                   self.dropout,
 													3,
 													3)
 			backward_layer = LstmCellWithProjection(lstm_input_size,
 													self.hidden_size,
 													self.cell_size,
 													not go_forward,
-													0.0,
+													self.dropout,
 													3,
 													3)
 			lstm_input_size = self.hidden_size
@@ -219,13 +220,11 @@ class StackedBRNNHighway(_EncoderBase):
 								 torch.cat([forward_state[1], backward_state[1]], -1)))
 
 		# stacked_sequence_outputs: torch.FloatTensor = torch.stack(sequence_outputs)
-		stacked_sequence_outputs: torch.FloatTensor = torch.cat(sequence_outputs, 3)
+		stacked_sequence_outputs = torch.cat(sequence_outputs, 3)
 		# Stack the hidden state and memory for each layer into 2 tensors of shape
 		# (num_layers, batch_size, hidden_size) and (num_layers, batch_size, cell_size)
 		# respectively.
 		final_hidden_states, final_memory_states = zip(*final_states)
-		final_state_tuple: Tuple[torch.FloatTensor,
-								 torch.FloatTensor] = (torch.cat(final_hidden_states, 0),
-														torch.cat(final_memory_states, 0))
+		final_state_tuple = (torch.cat(final_hidden_states, 0), torch.cat(final_memory_states, 0))
 		# Forward and backward need to be separated and the differnet layers have to be concatenated
 		return stacked_sequence_outputs, final_state_tuple

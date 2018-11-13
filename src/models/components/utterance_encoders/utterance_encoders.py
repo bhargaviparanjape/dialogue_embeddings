@@ -30,15 +30,11 @@ class AveragePool(nn.Module):
 class Average(nn.Module):
 	def __init__(self, args, **kwargs):
 		super(Average, self).__init__()
-		# self.input_size  = args.lookup_input_size
-		# self.hidden_size = args.lookup_hidden_size
-		# self.output_size = args.lookup_output_size
 		self.args = args
 
 	def forward(self, *input):
-		## pooling only happens over tokens not sure of the format here
-		## mean should take mask into account
 		data, mask = input[0], input[1]
+		mask = 1e-6 + mask
 		output = (data * mask.unsqueeze(2)).sum(1) / mask.sum(1).unsqueeze(1)
-		output[output != output] = 0
+		# output[output != output] = 0
 		return output

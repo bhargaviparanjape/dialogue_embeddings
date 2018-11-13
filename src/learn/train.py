@@ -5,6 +5,8 @@ from src.dataloaders import  factory as dataloader_factory
 from src.models import factory as model_factory
 from src.utils.utility_functions import AverageMeter,Timer, MultiTaskAverageCounter
 from random import shuffle
+from tensorboard import SummaryWriter
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,8 +61,17 @@ def train_epochs_sharedloss(args, dataset, model):
 
 def train_epochs(args, dataset, model):
 
-	#train_batches, validation_batches, test_batches = dataloader_factory.get_batches(args, dataset)
+	# train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_batches(args, dataset)
 	train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset)
+	writer = SummaryWriter(args.tensorboard_dir)
+
+	train_sample = []
+	examples = 0
+	for iteration, batch in enumerate(train_dataloader):
+		train_sample.append(batch)
+		examples += len(batch)
+		if examples > 1e4:
+			break
 
 	start_epoch = 0
 	stats = {'timer': Timer(), 'epoch': 0, 'best_valid': 0}
@@ -72,14 +83,20 @@ def train_epochs(args, dataset, model):
 
 		# Run 1 epoch
 		for iteration, batch in enumerate(train_dataloader):
-			train_loss.update(*model.update(batch))
+			loss = model.update(batch)
+			train_loss.update(*loss)
 
 			if (iteration + 1) % args.eval_interval == 0:
 				logger.info('train: Epoch = %d | iter = %d/%d | ' %
 						(epoch, iteration, len(train_dataloader)) +
 						'loss = %.2f | elapsed time = %.2f (s)' %
 						(train_loss.avg, stats['timer'].time()))
+				writer.add_scalar('Loss', train_loss.avg, iteration + epoch*len(train_dataloader))
 				train_loss.reset()
+
+			if (iteration + 1) % args.save_interval == 0:
+				logger.info('Saving model at epoch {0}, iteration {1}' % (epoch, iteration))
+				model.save()
 
 		logger.info('train: Epoch %d done. Time for epoch = %.2f (s)' %
 						(epoch, epoch_time.time()))
@@ -90,11 +107,13 @@ def train_epochs(args, dataset, model):
 
 
 		# Validate Partial Train data
-		validate(args, train_dataloader, model, stats, mode = "train")
+		validate(args, train_sample, model, stats, mode = "train")
 
 		# Validate on Development data
 		# TODO: Make this more generic and abstract out model file
 		result = validate(args, validation_dataloader, model, stats, mode = "dev")
+
+		writer.add_scalar(model.args.valid_metric, result, epoch)
 
 		if result > stats['best_valid']:
 			logger.info('Best valid: %s = %.2f (epoch %d, %d updates)' %
@@ -109,7 +128,8 @@ def train_epochs(args, dataset, model):
 			if bad_counter > 30:
 				logger.info("Early stopping after %d epochs" % epoch)
 				logger.info("Best Result : %.4f" % stats['best_valid'])
-				exit(0) 
+				bad_counter = 0
+				exit(0)
 		# Recreate training batches using shuffle
 		logger.info("Creating train batches for epoch {0}".format(epoch+1))
 
