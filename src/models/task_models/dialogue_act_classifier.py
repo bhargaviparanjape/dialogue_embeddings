@@ -262,9 +262,24 @@ class DialogueActClassifierNetwork(nn.Module):
 		dict_ = {"input_size": args.output_input_size, "hidden_size": args.output_hidden_size, "num_layers" : args.output_num_layers,
 							 "output_size": args.output_size}
 		self.classifier = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
+		self.args = args
 
-		## Define loss function: Custom masked entropy
+		if self.args.objective == "linear_crf":
+			dict_ = {"output_size": args.output_size}
+			self.structured_layer = model_factory.get_model_by_name(args.objective, args, kwargs = dict_)
 
+	def label_cross_entropy(self, label_logits, labels_flattened, mask_flattened):
+		label_log_probs_flat = F.log_softmax(label_logits, dim=1)
+		label_losses_flat = -torch.gather(label_log_probs_flat, dim=1, index=labels_flattened.view(-1, 1))
+		label_losses = label_losses_flat * mask_flattened
+		loss = label_losses.sum() / mask_flattened.float().sum()
+		return loss
+
+	def linear_crf(self, logits_flattened, labels_flattened, mask_flattened, h, w):
+		logits = logits_flattened.view(h,w,-1)
+		labels = labels_flattened.view(h,w,-1)
+		mask = mask_flattened.view(h, w)
+		return self.structured_layer(logits, labels, mask)
 
 	def forward(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch , gold_labels] = input
@@ -293,12 +308,17 @@ class DialogueActClassifierNetwork(nn.Module):
 		labels_flattened = gold_labels_current.view(gold_labels_current.shape[0]*gold_labels_current.shape[1], -1)
 		mask_flattened = dialogue_act_mask.view(dialogue_act_mask.shape[0]*dialogue_act_mask.shape[1], -1)
 
-		## When a CRF is used, it returns the loss as well
+
 		label_logits = self.classifier(conversation_encoded_flattened)
-		label_log_probs_flat = F.log_softmax(label_logits, dim=1)
-		label_losses_flat = -torch.gather(label_log_probs_flat, dim=1, index=labels_flattened.view(-1, 1))
-		label_losses = label_losses_flat * mask_flattened
-		loss = label_losses.sum() / mask_flattened.float().sum()
+		new_batch_size = dialogue_act_mask.shape[0]
+		new_conversation_size = dialogue_act_mask.shape[1]
+
+		if self.args.objective == "linear_crf":
+			loss = self.linear_crf(label_logits, labels_flattened, mask_flattened, new_batch_size, new_conversation_size)
+		else:
+			loss = self.label_cross_entropy(label_logits, labels_flattened, mask_flattened)
+
+
 		return loss
 
 	def evaluate(self, *input):
@@ -326,7 +346,15 @@ class DialogueActClassifierNetwork(nn.Module):
 		mask_flattened = dialogue_act_mask.view(dialogue_act_mask.shape[0] * dialogue_act_mask.shape[1], -1)
 
 		label_logits = self.classifier(conversation_encoded_flattened)
-		return label_logits
+
+		## when doing CRF inference; do viterbi decoding
+		h, w = conversation_encoded_current.shape[0], conversation_encoded_current.shape[1]
+		if self.args.objective == "linear_crf":
+			best_paths = self.structured_layer._viterbi_decode(label_logits.view(h, w, -1), dialogue_act_mask)
+			best_path_ids = [b[0] for b in best_paths]
+
+		## TODO: extract maximum and send to evaluation function here since viterbi gives best paths
+		return best_path_ids
 
 	@staticmethod
 	def add_args(parser):
@@ -363,14 +391,21 @@ class DialogueActClassifier(AbstractModel):
 		# Run forward
 		batch_size, *inputs = self.vectorize(inputs, mode = "test")
 		scores_logits = self.network.evaluate(*inputs)
-		labels_predictions = torch.sort(scores_logits, descending=True)[1][:, 0]
-		# Convert to CPU
-		if self.args.use_cuda:
-			labels_predictions = labels_predictions.data.cpu()
-			input_mask = inputs[2].data.cpu()
+		if self.args.objective == "linear_crf":
+			labels_predictions = torch.LongTensor(scores_logits).flatten()
+			if self.args.use_cuda:
+				input_mask = inputs[2].data.cpu()
+			else:
+				input_mask = inputs[2].data
 		else:
-			labels_predictions = labels_predictions.data
-			input_mask = inputs[2].data
+			labels_predictions = torch.sort(scores_logits, descending=True)[1][:, 0]
+			# Convert to CPU
+			if self.args.use_cuda:
+				labels_predictions = labels_predictions.data.cpu()
+				input_mask = inputs[2].data.cpu()
+			else:
+				labels_predictions = labels_predictions.data
+				input_mask = inputs[2].data
 
 		# Mask inputs
 		return [labels_predictions], input_mask
