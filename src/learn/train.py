@@ -60,10 +60,7 @@ def train_epochs_sharedloss(args, dataset, model):
 
 
 def train_epochs(args, dataset, model):
-
-	# train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_batches(args, dataset)
 	train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset)
-	# _, validation_dataloader, test_dataloader = dataloader_factory.get_batches(args, dataset)
 	writer = SummaryWriter(args.tensorboard_dir)
 
 	train_sample = []

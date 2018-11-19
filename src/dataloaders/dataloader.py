@@ -156,7 +156,7 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 				sampler = SortedBatchSampler(snippet_lengths, args.batch_size, shuffle=True)
 				batch_size = args.batch_size
 			else:
-				sampler = SortedBatchSampler(snippet_lengths, args.batch_size, shuffle=True)
+				sampler = SortedBatchSampler(snippet_lengths, args.eval_batch_size, shuffle=True)
 				batch_size = args.eval_batch_size
 
 			batcher = SnippetBatcher(args, vocabulary)
@@ -264,6 +264,117 @@ class SnippetBatcher():
 
 		return batch
 
+@RegisterLoader('conversation_length')
+class ConversationDataloader(AbstractDataLoader):
+	def __init__(self, args):
+		self.args = args
+		self.mode = args.run_mode
+		self.batch_size = args.batch_size
+
+	def get_dataloader(self, args, dataset):
+
+		def create_conversations(dataset, vocabulary, mode = "train"):
+			bucket = []
+			bucket_lengths = []
+			for data_item in dataset:
+				bucket.append(data_item)
+				bucket_lengths.append(len(data_item.utterances))
+			if mode == "train":
+				sampler = SortedBatchSampler(bucket_lengths, args.batch_size, shuffle=True)
+				batch_size = args.batch_size
+			else:
+				sampler = SortedBatchSampler(bucket_lengths, args.eval_batch_size, shuffle=True)
+				batch_size = args.eval_batch_size
+			batcher = Batcher(args, vocabulary)
+			loader = torch.utils.data.DataLoader(
+				bucket,
+				batch_size=batch_size,
+				sampler=sampler,
+				num_workers=args.data_workers,
+				collate_fn=batcher.batchify,
+				pin_memory=False,
+			)
+			return loader
+
+		if self.mode == "train":
+			train_loader = create_conversations(dataset.train_dataset, dataset.vocabulary, mode = "train")
+			valid_loader = create_conversations(dataset.valid_dataset, dataset.vocabulary, mode = "test")
+			test_loader = create_conversations(dataset.test_dataset, dataset.vocabulary, mode = "test")
+			return train_loader, valid_loader, test_loader
+		elif self.mode == "test":
+			valid_loader = create_conversations(dataset.valid_dataset, dataset.vocabulary, mode = "test")
+			test_loader = create_conversations(dataset.test_dataset, dataset.vocabulary, mode = "test")
+			return None, valid_loader, test_loader
+
+class Batcher():
+	def __init__(self, args, vocabulary):
+		self.args = args
+		self.vocabulary = vocabulary
+
+	def batchify(self, batch_data):
+		utterance_bow_list = []
+
+		## category classification labels
+		labels = []
+
+		conversation_mask = []
+		utterance_list = []
+		utterance_ids_list = []
+		utterance_word_ids_list = []
+		conversation_lengths = []
+		conversation_ids = []
+
+		batch = {}
+
+		if self.args.truncate_dataset:
+			for idx, conversation in enumerate(batch_data):
+				random_short_length = random.sample(range(5, 10), 1)[0]
+				batch_data[idx].utterances = conversation.utterances[:random_short_length]
+
+		max_num_utterances = max([len(c.utterances) for c in batch_data])
+		max_utterance_length = max([max([len(u.tokens) for u in c.utterances]) for c in batch_data])
+		for c_idx, conversation in enumerate(batch_data):
+			length = len(conversation.utterances)
+			for u_idx, u in enumerate(conversation.utterances):
+				utterance_list.append(u.tokens)
+				utterance_word_ids_list.append(pad_seq(self.vocabulary.get_indices(u.tokens), max_utterance_length))
+				utterance_ids_list.append(u.id)
+				labels.append(u.label)
+				current_utterance_ids = self.vocabulary.get_indices(conversation.utterances[u_idx].tokens)
+				utterance_bow_list.append(list(set(self.vocabulary.get_indices(u.tokens))))
+
+			conversation_lengths.append(length)
+			conversation_ids.append(conversation.id)
+			conversation_mask.append([1] * length + [0] * (max_num_utterances - length))
+			## apend dummy utterances
+			for i in range(max_num_utterances - length):
+				utterance_list.append([])
+				utterance_word_ids_list.append(pad_seq([], max_utterance_length))
+				utterance_ids_list.append(-1)
+				labels.append(0)
+				utterance_bow_list.append([self.vocabulary.vocabulary[self.vocabulary.pad_token]])
+
+		batch['size'] = len(utterance_list)
+		# Generate BOW Mask
+		max_bows_batch = max(len(l) for l in utterance_bow_list)
+		batch['utterance_bow_list'] = copy.deepcopy(utterance_bow_list)
+		utterance_bow_list_padded = np.array([pad_seq(l, max_bows_batch) for l in utterance_bow_list])
+
+		batch['utterance_list'] = utterance_list
+		batch['utterance_word_ids'] = np.array(utterance_word_ids_list)
+		batch['utterance_ids_list'] = np.array(utterance_ids_list)
+		batch['input_mask'] = (1 * (batch['utterance_word_ids'] != 0))
+
+		batch['label'] = labels
+		batch['utterance_bow_mask'] = (1 * (utterance_bow_list_padded != 0))
+
+		batch['conversation_lengths'] = conversation_lengths
+		batch['conversation_ids'] = conversation_ids
+		batch['conversation_mask'] = conversation_mask
+		batch['max_num_utterances'] = max_num_utterances
+		batch['max_utterance_length'] = max_utterance_length
+
+		return batch
 
 @RegisterBatcher('conversation_snippets')
 class ConversationSnippetBatcher(AbstractDataLoader):
@@ -533,7 +644,7 @@ class ConversationBatcher(AbstractDataLoader):
 					labels.append(0)
 					next_utterance_bow_list.append([])
 					prev_utterance_bow_list.append([])
-					utterance_bow_list.append([self.vocabulary.vocabulary[self.vocabulary.pad_token]])
+					utterance_bow_list.append([vocabulary.vocabulary[vocabulary.pad_token]])
 
 			batch['size'] = len(utterance_list)
 			# Generate BOW Mask

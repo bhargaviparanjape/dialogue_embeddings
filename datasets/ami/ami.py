@@ -173,13 +173,13 @@ if __name__ == '__main__':
 
 	## match the word order tuples and assign a dialogue act to each utterance
 	for id in ami_utterances:
-		# if id not in dialogue act information: denote with special marke -1
+		# if id not in dialogue act information: denote with special marker 0 (infact predict that there is no marker here??)
 		if id not in dialogue_act_information:
 			# list of ami_utterances[id] by id
 			full_utterance_list = []
 			for person in ami_utterances[id]:
 				full_utterance_list += ami_utterances[id][person].values()
-			full_utterance_list = [l + [-1] for l in full_utterance_list]
+			full_utterance_list = [l + [0] for l in full_utterance_list]
 			ordered_utterance_list = sorted(full_utterance_list, key=lambda x : x[1])
 				## add dummy dialogue acts
 		else:
