@@ -201,21 +201,22 @@ class Vocabulary(object):
 			aggregated_vocab.id_to_postag[id] = unique_postag[id]
 
 		## for common words, add counters, otherwise retain infividual counters
-		for id in unique_words:
+		for enum_, id in enumerate(unique_words):
 			if id in self.std_tokens:
 				continue
 			if id in self.counter.keys() and id in other.counter.keys():
 				aggregated_counter[id] = self.counter[id] + other.counter[id]
-				idx = self.vocabulary[id]
-				aggregated_utterance_frequency[idx] = self.utterance_frequency[id] + other.utterance_frequency[id]
+				idx1 = self.vocabulary[id]
+				idx2 = other.vocabulary[id]
+				aggregated_utterance_frequency[enum_ + 6] = self.utterance_frequency[idx1] + other.utterance_frequency[idx2]
 			elif id in self.counter.keys():
 				aggregated_counter[id] = self.counter[id]
 				idx = self.vocabulary[id]
-				aggregated_utterance_frequency[idx] = self.utterance_frequency[idx]
+				aggregated_utterance_frequency[enum_ + 6] = self.utterance_frequency[idx]
 			else:
 				aggregated_counter[id] = other.counter[id]
 				idx = other.vocabulary[id]
-				aggregated_utterance_frequency[idx] = other.utterance_frequency[idx]
+				aggregated_utterance_frequency[enum_ + 6] = other.utterance_frequency[idx]
 		aggregated_vocab.counter = aggregated_counter
 		aggregated_vocab.utterance_frequency = aggregated_utterance_frequency
 		return aggregated_vocab

@@ -63,12 +63,21 @@ def train_epochs(args, dataset, model):
 
 	# train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_batches(args, dataset)
 	train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset)
+	# _, validation_dataloader, test_dataloader = dataloader_factory.get_batches(args, dataset)
 	writer = SummaryWriter(args.tensorboard_dir)
 
 	train_sample = []
 	examples = 0
 	for iteration, batch in enumerate(train_dataloader):
 		train_sample.append(batch)
+		examples += len(batch)
+		if examples > 1e4:
+			break
+
+	dev_probe_sample = []
+	examples = 0
+	for iteration, batch in enumerate(train_dataloader):
+		dev_probe_sample.append(batch)
 		examples += len(batch)
 		if examples > 1e4:
 			break
@@ -96,6 +105,7 @@ def train_epochs(args, dataset, model):
 
 			if (iteration + 1) % args.save_interval == 0:
 				logger.info('Saving model at epoch {0}, iteration {1}' % (epoch, iteration))
+				validate(args, dev_probe_sample, model, stats, mode = "dev")
 				model.save()
 
 		logger.info('train: Epoch %d done. Time for epoch = %.2f (s)' %
@@ -129,7 +139,7 @@ def train_epochs(args, dataset, model):
 				logger.info("Early stopping after %d epochs" % epoch)
 				logger.info("Best Result : %.4f" % stats['best_valid'])
 				bad_counter = 0
-				exit(0)
+				# exit(0)
 		# Recreate training batches using shuffle
 		logger.info("Creating train batches for epoch {0}".format(epoch+1))
 

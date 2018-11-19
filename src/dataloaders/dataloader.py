@@ -445,6 +445,8 @@ class ConversationBatcher(AbstractDataLoader):
 			next_utterance_bow_list = []
 			prev_utterance_bow_list= []
 
+			utterance_bow_list = []
+
 			## category classification labels
 			labels = []
 
@@ -512,6 +514,8 @@ class ConversationBatcher(AbstractDataLoader):
 					next_utterance_bow_list.append(next_utterance_bow)
 					prev_utterance_bow_list.append(prev_utterance_bow)
 
+					utterance_bow_list.append(list(set(vocabulary.get_indices(u.tokens))))
+
 
 				conversation_lengths.append(length)
 				conversation_ids.append(conversation.id)
@@ -529,12 +533,18 @@ class ConversationBatcher(AbstractDataLoader):
 					labels.append(0)
 					next_utterance_bow_list.append([])
 					prev_utterance_bow_list.append([])
+					utterance_bow_list.append([self.vocabulary.vocabulary[self.vocabulary.pad_token]])
 
+			batch['size'] = len(utterance_list)
 			# Generate BOW Mask
 			max_next_bows_batch = max(len(l) for l in next_utterance_bow_list)
 			max_prev_bows_batch = max(len(l) for l in previous_utterance_ids_list)
 			next_utterance_bow_list = [pad_seq(l, max_next_bows_batch) for l in next_utterance_bow_list]
 			prev_utterance_bow_list = [pad_seq(l, max_prev_bows_batch) for l in prev_utterance_bow_list]
+
+			max_bows_batch = max(len(l) for l in utterance_bow_list)
+			batch['utterance_bow_list'] = copy.deepcopy(utterance_bow_list)
+			utterance_bow_list_padded = np.array([pad_seq(l, max_bows_batch) for l in utterance_bow_list])
 
 
 			batch['utterance_list'] = utterance_list
@@ -555,6 +565,7 @@ class ConversationBatcher(AbstractDataLoader):
 			batch['prev_bow_list'] = np.array(prev_utterance_bow_list)
 			batch['next_bow_mask'] = (1 * (batch['next_bow_list'] != 0))
 			batch['prev_bow_mask'] = (1 * (batch['prev_bow_list'] != 0))
+			batch['utterance_bow_mask'] = (1 * (utterance_bow_list_padded != 0))
 
 			batch['conversation_lengths'] = conversation_lengths
 			batch['conversation_ids'] = conversation_ids

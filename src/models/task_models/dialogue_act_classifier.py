@@ -352,9 +352,8 @@ class DialogueActClassifierNetwork(nn.Module):
 		if self.args.objective == "linear_crf":
 			best_paths = self.structured_layer._viterbi_decode(label_logits.view(h, w, -1), dialogue_act_mask)
 			best_path_ids = [b[0] for b in best_paths]
-
-		## TODO: extract maximum and send to evaluation function here since viterbi gives best paths
-		return best_path_ids
+			return best_path_ids
+		return label_logits
 
 	@staticmethod
 	def add_args(parser):

@@ -343,21 +343,17 @@ class DialogueBowNetwork(nn.Module):
 		self.next_bow_scorer = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
 		self.prev_bow_scorer = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
 
-		self.BCELoss = torch.nn.BCELoss()
+		self.BCELoss = torch.nn.BCELoss(reduce=False)
 
 
 	def multilabel_cross_entropy(self, input, target, mask, weights):
-		## Every logit is squeezed into a probability distribution
+		# Every logit is squeezed into a probability distribution
 		negative_log_prob = F.sigmoid(input)
 		loss = self.BCELoss(negative_log_prob, target.float())
-		# loss = (loss_vector/mask_sum.unsqueeze(1)).sum()/mask.size(0)
-		# Legacy Loss
-		# loss1 = (torch.gather(negative_log_prob, 1, target) * mask.float()).sum()/mask.float().sum()
-		# mask_sum = 1e-6 + mask.float().sum(1)
-		# normalized_negative_log_prob = negative_log_prob/mask_sum.unsqueeze(1)
-		# loss = (torch.gather(normalized_negative_log_prob, 1, target) * mask.float() * weights).sum()/mask.size(0)
-		# loss = (torch.gather(normalized_negative_log_prob, 1, target) * mask.float()).sum() / mask.size(0)
-		return loss
+		# Mask loss-function
+		expanded_mask = mask.unsqueeze(-1).expand(mask.size(0), target.size(1))
+		masked_loss = (loss * expanded_mask).sum()/ mask.sum()
+		return masked_loss
 
 	def forward(self, *input):
 		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch,
@@ -388,12 +384,13 @@ class DialogueBowNetwork(nn.Module):
 																					   conversation_encoded_backward.shape[
 																						   1])
 		bow_reassembled = gold_bow.view(conversation_batch_size, max_num_utterances_batch, gold_bow.shape[1])
-		bow_mask_reassembled = gold_mask.view(conversation_batch_size, max_num_utterances_batch, gold_mask.shape[1])
+		bow_mask_reassembled = conversation_mask.view(conversation_batch_size, max_num_utterances_batch)
 		bow_weights_reassembled = gold_weights.view(conversation_batch_size, max_num_utterances_batch, gold_weights.shape[1])
 
 		# Shift to prepare next and previous utterence encodings
 		conversation_encoded_current1 = conversation_encoded_forward_reassembled[:, 0:-1, :].contiguous()
 		bow_next = bow_reassembled[:, 1:, :].contiguous()
+		# conversation_mask_next = bow_mask_reassembled[:, 1:].contiguous()
 		conversation_mask_next = bow_mask_reassembled[:, 1:].contiguous()
 		bow_next_weights = bow_weights_reassembled[:, 1:].contiguous()
 
@@ -409,9 +406,9 @@ class DialogueBowNetwork(nn.Module):
 		conversation_encoded_current2 = conversation_encoded_current2.view(conversation_encoded_current2.shape[0]*
 																		   conversation_encoded_current2.shape[1], -1)
 		conversation_mask_next = conversation_mask_next.view(conversation_mask_next.shape[0]*
-																		   conversation_mask_next.shape[1], -1)
+																		   conversation_mask_next.shape[1])
 		conversation_mask_previous = conversation_mask_previous.view(conversation_mask_previous.shape[0]*
-																		   conversation_mask_previous.shape[1], -1)
+																		   conversation_mask_previous.shape[1])
 		bow_next = bow_next.view(bow_next.shape[0]*bow_next.shape[1], -1)
 		bow_previous = bow_previous.view(bow_previous.shape[0]*bow_previous.shape[1], -1)
 
@@ -430,8 +427,7 @@ class DialogueBowNetwork(nn.Module):
 		prev_loss = self.multilabel_cross_entropy(prev_vocab_scores, bow_previous, conversation_mask_next, bow_prev_weights)
 
 		## Average loss for next and previous conversations
-		# loss = (next_loss + prev_loss) / 2
-		loss = next_loss
+		loss = (next_loss + prev_loss) / 2
 
 		return loss
 
@@ -580,23 +576,23 @@ class DialogueClassifier(AbstractModel):
 
 			total += 1
 
-			# predicted_ids = np.where(prev_predicted[i] > self.args.threshold)[0]
-			# gold_ids = np.where(prev_correct[i] != 0)[0]
-			#
-			# if len(set(predicted_ids)) == 0:
-			# 	precision = 0
-			# else:
-			# 	precision = float(len(set(gold_ids) & set(predicted_ids))) / len(set(predicted_ids))
-			# recall = float(len(set(gold_ids) & set(predicted_ids))) / len(set(gold_ids))
-			# if precision + recall == 0:
-			# 	f1 = 0
-			# else:
-			# 	f1 = (2 * precision * recall) / (precision + recall)
-			# batch_precision += precision
-			# batch_recall += recall
-			# batch_f1 += f1
+			predicted_ids = np.where(prev_predicted[i] > self.args.threshold)[0]
+			gold_ids = np.where(prev_correct[i] != 0)[0]
 
-			# total += 1
+			if len(set(predicted_ids)) == 0:
+				precision = 0
+			else:
+				precision = float(len(set(gold_ids) & set(predicted_ids))) / len(set(predicted_ids))
+			recall = float(len(set(gold_ids) & set(predicted_ids))) / len(set(gold_ids))
+			if precision + recall == 0:
+				f1 = 0
+			else:
+				f1 = (2 * precision * recall) / (precision + recall)
+			batch_precision += precision
+			batch_recall += recall
+			batch_f1 += f1
+
+			total += 1
 
 		metric_update_dict = {}
 
