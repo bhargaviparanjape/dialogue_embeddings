@@ -7,7 +7,8 @@ import json
 from allennlp.modules.elmo import Elmo, batch_to_ids
 import pdb
 import codecs
-
+import h5py
+import pickle
 
 from src.models.factory import RegisterModel
 from src.utils.utility_functions import variable, FloatTensor, ByteTensor, LongTensor
@@ -64,6 +65,12 @@ class AverageELMoEmbedding():
 		self.eoc = vocabulary.eoc
 		self.soc = vocabulary.soc
 
+	def load_embeddings(self, vocabulary):
+		h5_path = self.pretrained_embedding_path + ".hdf5"
+		pkl_path = self.pretrained_embedding_path + ".pkl"
+		with h5py.File(h5_path, 'r') as hf:
+			self.embeddings = np.array(hf.get('average_elmo'))
+		self.conversation_id2idx = pickle.load(open(pkl_path, "rb"))
 
 	def lookup(self, input):
 		conversation_id_list = input["conversation_ids"]
@@ -72,17 +79,20 @@ class AverageELMoEmbedding():
 		utterance_ids_list = input['utterance_ids_list']
 		batch_length = len(conversation_id_list)
 		reshaped_utterance_ids =  utterance_ids_list.reshape((batch_length, max_num_utterances_batch))
-		batch_embeddings = []
+		batch_embeddings = np.array([], dtype=np.float64).reshape(0,1024)
 		for x, id in enumerate(conversation_id_list):
-			embeddings = self.embeddings[id]
+			embeddings = self.embeddings[self.conversation_id2idx[id]]
+			embeddings = np.vstack(embeddings).astype(np.float).transpose()
 			# Based on the utterance ID range of the current snippet of this conversation, sample a small subset of utterance embeddings
 			conversation_range = reshaped_utterance_ids[x]
 			snippet_range = conversation_range[np.where(conversation_range >= 0)]
 			# snippet_embeddings = [self.embeddings[self.soc].tolist()] + self.embeddings[id][snippet_range[0]:snippet_range[-1] + 1]\
 			# 						+ [self.embeddings[self.eoc].tolist()]
-			snippet_embeddings = self.embeddings[id][snippet_range[0]:snippet_range[-1] + 1]
-			batch_embeddings += snippet_embeddings
-			batch_embeddings += [np.random.rand(self.args.embed_size).tolist() for i in range(max_num_utterances_batch - len(snippet_embeddings))]
+			snippet_embeddings = embeddings[snippet_range[0]:snippet_range[-1] + 1]
+			batch_embeddings = np.vstack([batch_embeddings, snippet_embeddings])
+			batch_embeddings = np.vstack([batch_embeddings,
+			                              np.random.rand(
+				                              max_num_utterances_batch - len(snippet_embeddings), self.args.embed_size)])
 		batch_embedding_tensor = FloatTensor(batch_embeddings)
 		return batch_embedding_tensor, input_mask
 

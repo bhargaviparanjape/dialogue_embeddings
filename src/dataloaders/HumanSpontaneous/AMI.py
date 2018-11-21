@@ -3,8 +3,6 @@ from src.dataloaders.AbstractDataset import AbstractDataset
 from src.dataloaders.factory import RegisterDataset
 from src.utils.vocabulary import Vocabulary
 
-AMI_DIALOGUE_TAGSET = []
-
 TRAIN_SPLIT = [
 "ES2002", "ES2005", "ES2006", "ES2007", "ES2008", "ES2009", "ES2010", "ES2012", "ES2013", "ES2015", "ES2016",
 "IS1000", "IS1001", "IS1002", "IS1003", "IS1004", "IS1005", "IS1006", "IS1007", "TS3005", "TS3008", "TS3009",
@@ -20,13 +18,18 @@ TEST_SPLIT = [
 	"ES2004", "ES2014", "IS1009", "TS3003", "TS3007", "EN2002"
 ]
 
+# DIAL ACT 10 is missing; included it anyway but never predicted
+AMI_DIALOGUE_TAGSET = {'2': 2, '9': 9, '4': 4, '5': 5, '-1': 0, '11': 11, '7' : 7,
+                       '14': 14, '1': 1, '15': 15, '6': 6, '12': 12, '13' : 13,
+                       '3': 3, '16': 16, '8':8, '10':10}
+
 @RegisterDataset('ami')
 class AmericanMeetingCorpus(AbstractDataset):
 	class Utterance:
 		def __init__(self, id, utterance):
 			self.name = "ami"
 			self.id = utterance.utterance_id
-			self.label = utterance.dialogue_act
+			self.label = AMI_DIALOGUE_TAGSET[utterance.dialogue_act]
 			self.speaker = utterance.speaker
 			self.tokens = utterance.tokens
 			self.length = len(self.tokens)
@@ -56,11 +59,15 @@ class AmericanMeetingCorpus(AbstractDataset):
 				break
 			dataset.append(AmericanMeetingCorpus.Dialogue(transcript))
 
+		# iterate over all labels to construct label dictionary
+		self.tag_set = set()
+		for utterance in corpus.iter_utterances(display_progress=True):
+			self.tag_set.add(utterance.dialogue_act)
 
 		if args.truncate_dataset:
-			self.train_dataset = dataset[:15]
-			self.valid_dataset = dataset[15:20]
-			self.test_dataset = dataset[20:]
+			self.train_dataset = dataset[:3]
+			self.valid_dataset = dataset[3:4]
+			self.test_dataset = dataset[4:5]
 		else:
 			## depending on what task (in args) you can choose to return only a subset that is annotated for DA
 			self.train_dataset = []

@@ -221,6 +221,7 @@ class SnippetBatcher():
 			max_num_utterances = current_max_length
 		max_utterance_length = max([max([len(u.tokens) for u in c["utterances"]]) for c in batch_data])
 
+		# optimize searches in vocabulary do that in the dataloader itself
 		for c_idx, conversation in enumerate(batch_data):
 			length = len(conversation["utterances"])
 			utterance_ids_list += conversation["range"]
@@ -338,7 +339,7 @@ class Batcher():
 			for u_idx, u in enumerate(conversation.utterances):
 				utterance_list.append(u.tokens)
 				utterance_word_ids_list.append(pad_seq(self.vocabulary.get_indices(u.tokens), max_utterance_length))
-				utterance_ids_list.append(u.id)
+				utterance_ids_list.append(u_idx)
 				labels.append(u.label)
 				current_utterance_ids = self.vocabulary.get_indices(conversation.utterances[u_idx].tokens)
 				utterance_bow_list.append(list(set(self.vocabulary.get_indices(u.tokens))))
