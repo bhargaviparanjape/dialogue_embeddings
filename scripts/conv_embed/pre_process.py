@@ -3,6 +3,7 @@ import torch.multiprocessing as mp
 from src.utils.utility_functions import pad_seq
 import h5py
 import pickle
+import tqdm
 try:
 	mp.set_start_method('spawn')
 except:
@@ -106,7 +107,7 @@ if __name__ == "__main__":
 
 		conversation_processed = 0
 		## TQDM on this
-		for result in job_pool.imap(process_conversation, job_data):
+		for result in tqdm.tqdm(job_pool.imap(process_conversation, job_data)):
 			for r in result:
 				# dump conversation_ids mapped to conversation_processed
 				# dump conversation_processed into h5py
