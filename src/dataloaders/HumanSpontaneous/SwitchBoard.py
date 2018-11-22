@@ -47,6 +47,10 @@ class SwitchBoard(AbstractDataset):
 				break
 			dataset.append(SwitchBoard.Dialogue(transcript))
 
+		# iterate over all labels to construct label dictionary
+		# self.tag_set = set()
+		# for utterance in corpus.iter_utterances(display_progress=True):
+		# 	self.tag_set.add(utterance.damsl_act_tag().strip())
 
 		## 1155 transcribed datapoints ; 1115, 19, 21 split
 		if args.truncate_dataset:
@@ -55,10 +59,9 @@ class SwitchBoard(AbstractDataset):
 			self.test_dataset = dataset[20:]
 		else:
 			##TODO: this split adheres to numbers reporteed by Schriberg et. al., but ideally cross-validation should be done
-			self.train_dataset = dataset[:1115]
-			self.valid_dataset = dataset[1115:1134]
-			self.test_dataset = dataset[1134:]
-
+			self.train_dataset = dataset[:1003] #1003
+			self.valid_dataset = dataset[1003:1116] #115-003 = 112
+			self.test_dataset = dataset[1116:1136] # 135 - 116 = 19
 		## create vocabulary from training data (unks  during test time)
 		for data_point in self.train_dataset:
 			for utterance in data_point.utterances:

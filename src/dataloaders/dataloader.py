@@ -84,9 +84,9 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 		self.batch_size = args.batch_size
 		self.conversation_size = args.conversation_size
 
-	def get_dataloader(self, args, dataset):
+	def get_dataloader(self, args, dataset, model):
 
-		def create_snippets(dataset, vocabulary, mode="train"):
+		def create_snippets(dataset, vocabulary, model, mode="train"):
 
 			if args.truncate_dataset:
 				for idx, conversation in enumerate(dataset):
@@ -99,13 +99,17 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 			id_snippet_dict = {}
 			for c_idx, conversation in enumerate(dataset):
 				length = len(conversation.utterances)
+				if hasattr(model.token_encoder, 'conversation_id2idx'):
+					conversation_id = model.token_encoder.conversation_id2idx[conversation.id]
+				else:
+					conversation_id = conversation.id
 				snippets = []
 				dummy_utterance = [AbstractDataset.Utterance([vocabulary.pad_token])]
 				start_utterance = [AbstractDataset.Utterance([vocabulary.soc])]
 				end_utterance = [AbstractDataset.Utterance([vocabulary.eoc])]
 				if length <= self.conversation_size:
 					snippet = {}
-					snippet["id"] = conversation.id
+					snippet["id"] = conversation_id
 					snippet["utterances"] = conversation.utterances #end_utterance
 					snippet["range"] = list(range(0, length))
 					snippet["mask"] = [1]*(length)
@@ -119,7 +123,7 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 					padded_range = [-1]*(self.conversation_size-1) + list(range(length)) + [-1]*(self.conversation_size-1)
 					for i in range(length + self.conversation_size - 1):
 						snippet = {}
-						snippet["id"] = conversation.id
+						snippet["id"] = conversation_id
 						snippet_utterences = padded_utterances[i : i+ self.conversation_size]
 						snippet_range = padded_range[i : i+ self.conversation_size]
 						## Pull Data to the front of the snippet
@@ -170,13 +174,13 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 			)
 			return loader
 		if self.mode == "train":
-			train_loader = create_snippets(dataset.train_dataset, dataset.vocabulary, mode = "train")
-			valid_loader = create_snippets(dataset.valid_dataset, dataset.vocabulary, mode = "test")
-			test_loader = create_snippets(dataset.test_dataset, dataset.vocabulary, mode = "test")
+			train_loader = create_snippets(dataset.train_dataset, dataset.vocabulary, model, mode = "train")
+			valid_loader = create_snippets(dataset.valid_dataset, dataset.vocabulary, model, mode = "test")
+			test_loader = create_snippets(dataset.test_dataset, dataset.vocabulary, model, mode = "test")
 			return train_loader, valid_loader, test_loader
 		elif self.mode == "test":
-			valid_loader = create_snippets(dataset.valid_dataset, dataset.vocabulary, mode = "test")
-			test_loader = create_snippets(dataset.test_dataset, dataset.vocabulary, mode = "test")
+			valid_loader = create_snippets(dataset.valid_dataset, dataset.vocabulary, model, mode = "test")
+			test_loader = create_snippets(dataset.test_dataset, dataset.vocabulary, model, mode = "test")
 			return None, valid_loader, test_loader
 
 class SnippetBatcher():
@@ -272,12 +276,15 @@ class ConversationDataloader(AbstractDataLoader):
 		self.mode = args.run_mode
 		self.batch_size = args.batch_size
 
-	def get_dataloader(self, args, dataset):
+	def get_dataloader(self, args, dataset, model):
 
-		def create_conversations(dataset, vocabulary, mode = "train"):
+		def create_conversations(dataset, vocabulary, model, mode = "train"):
 			bucket = []
 			bucket_lengths = []
 			for data_item in dataset:
+				## Data item change conversational ids to indices here itself.
+				if hasattr(model.token_encoder, 'conversation_id2idx'):
+					data_item.id = model.token_encoder.conversation_id2idx[data_item.id]
 				bucket.append(data_item)
 				bucket_lengths.append(len(data_item.utterances))
 			if mode == "train":
@@ -286,7 +293,7 @@ class ConversationDataloader(AbstractDataLoader):
 			else:
 				sampler = SortedBatchSampler(bucket_lengths, args.eval_batch_size, shuffle=True)
 				batch_size = args.eval_batch_size
-			batcher = Batcher(args, vocabulary)
+			batcher = Batcher(args, vocabulary, model)
 			loader = torch.utils.data.DataLoader(
 				bucket,
 				batch_size=batch_size,
@@ -298,17 +305,17 @@ class ConversationDataloader(AbstractDataLoader):
 			return loader
 
 		if self.mode == "train":
-			train_loader = create_conversations(dataset.train_dataset, dataset.vocabulary, mode = "train")
-			valid_loader = create_conversations(dataset.valid_dataset, dataset.vocabulary, mode = "test")
-			test_loader = create_conversations(dataset.test_dataset, dataset.vocabulary, mode = "test")
+			train_loader = create_conversations(dataset.train_dataset, dataset.vocabulary, model, mode = "train")
+			valid_loader = create_conversations(dataset.valid_dataset, dataset.vocabulary, model, mode = "test")
+			test_loader = create_conversations(dataset.test_dataset, dataset.vocabulary, model, mode = "test")
 			return train_loader, valid_loader, test_loader
 		elif self.mode == "test":
-			valid_loader = create_conversations(dataset.valid_dataset, dataset.vocabulary, mode = "test")
-			test_loader = create_conversations(dataset.test_dataset, dataset.vocabulary, mode = "test")
+			valid_loader = create_conversations(dataset.valid_dataset, dataset.vocabulary, model, mode = "test")
+			test_loader = create_conversations(dataset.test_dataset, dataset.vocabulary, model, mode = "test")
 			return None, valid_loader, test_loader
 
 class Batcher():
-	def __init__(self, args, vocabulary):
+	def __init__(self, args, vocabulary, model):
 		self.args = args
 		self.vocabulary = vocabulary
 

@@ -38,3 +38,10 @@ class Average(nn.Module):
 		output = (data * mask.unsqueeze(2)).sum(1) / mask.sum(1).unsqueeze(1)
 		# output[output != output] = 0
 		return output
+
+
+@RegisterModel('recurrent')
+class Recurrent(nn.Module):
+	def __init__(self, args, **kwargs):
+		super(Recurrent, self).__init__()
+		self.args = args

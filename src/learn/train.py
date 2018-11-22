@@ -5,7 +5,7 @@ from src.dataloaders import  factory as dataloader_factory
 from src.models import factory as model_factory
 from src.utils.utility_functions import AverageMeter,Timer, MultiTaskAverageCounter
 from random import shuffle
-from tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ def train_epochs_multiplex(args, dataset, model):
 	pass
 
 def train_epochs_sharedloss(args, dataset, model):
-	train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset)
+	train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset, model)
 
 	start_epoch = 0
 	stats = {'timer': Timer(), 'epoch': 0, 'best_valid': 0}
@@ -60,7 +60,7 @@ def train_epochs_sharedloss(args, dataset, model):
 
 
 def train_epochs(args, dataset, model):
-	train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset)
+	train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset, model)
 	writer = SummaryWriter(args.tensorboard_dir)
 
 	train_sample = []

@@ -83,14 +83,14 @@ def get_batches(args, dataset):
 
 	return batches
 
-def get_dataloader(args, dataset):
+def get_dataloader(args, dataset, model):
 	if args.dataloader not in DATALOADER_REGISTRY:
 		raise Exception(
 			NO_DATALOADER_ERR.format(args.dataloader, DATALOADER_REGISTRY.keys()))
 
 	if args.dataloader in DATALOADER_REGISTRY:
 		dataloader = DATALOADER_REGISTRY[args.dataloader](args)
-		dataloader_object = dataloader.get_dataloader(args, dataset)
+		dataloader_object = dataloader.get_dataloader(args, dataset, model)
 	return dataloader_object
 
 

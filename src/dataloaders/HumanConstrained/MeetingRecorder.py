@@ -4,6 +4,7 @@ from src.dataloaders.HumanSpontaneous.SwitchBoard import DAMSL_TAGSET
 from src.dataloaders.factory import RegisterDataset
 from src.utils.vocabulary import Vocabulary
 import re
+from collections import Counter
 
 MRDA_DAMSL_MAP = { '%' : '%', '%-' : '%--', 'x' : 'x', 't1' : 't1', 't3' : 't3', 't' : 't', 'c' : '##'
 				   , 'sd' : 's', 'sv' : 's', 'oo' : '##', 'qy' : 'qy', 'qw' : 'qw' , 'qo' : 'qo', 'qr' : 'qr'
@@ -103,6 +104,11 @@ class MeetingRecoder(AbstractDataset):
 			if args.truncate_dataset and self.total_length > 20:
 				break
 			dataset.append(MeetingRecoder.Dialogue(transcript))
+
+		tag_set = []
+		for utterance in corpus.iter_utterances(display_progress=True):
+			tag_set.append(MeetingRecoder.processs_mrda_tag(utterance.da_tag.strip(), type="simple"))
+		tag_counter = Counter(tag_set)
 
 		#TODO: Exact test-dev split for mrda //actually do cross validation
 		if args.truncate_dataset:

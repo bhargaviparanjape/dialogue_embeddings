@@ -80,8 +80,10 @@ class AverageELMoEmbedding():
 		batch_length = len(conversation_id_list)
 		reshaped_utterance_ids =  utterance_ids_list.reshape((batch_length, max_num_utterances_batch))
 		batch_embeddings = np.array([], dtype=np.float64).reshape(0,1024)
+
+		## TODO: tensorize this
 		for x, id in enumerate(conversation_id_list):
-			embeddings = self.embeddings[self.conversation_id2idx[id]]
+			embeddings = self.embeddings[id]
 			embeddings = np.vstack(embeddings).astype(np.float).transpose()
 			# Based on the utterance ID range of the current snippet of this conversation, sample a small subset of utterance embeddings
 			conversation_range = reshaped_utterance_ids[x]

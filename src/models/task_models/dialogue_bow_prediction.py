@@ -616,6 +616,7 @@ class DialogueClassifier(AbstractModel):
 		token_embeddings, token_mask = self.token_encoder.lookup(batch)
 		if self.args.use_cuda:
 			token_embeddings = token_embeddings.cuda()
+
 		input_mask_variable = variable(token_mask)
 
 		conversation_lengths = batch['conversation_lengths']
