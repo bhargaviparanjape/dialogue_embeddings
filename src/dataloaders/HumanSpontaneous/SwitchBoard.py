@@ -18,7 +18,7 @@ class SwitchBoard(AbstractDataset):
 			self.label = DAMSL_TAGSET[utterance.damsl_act_tag().strip()] # index for DAMSL starts from 1
 			self.speaker = utterance.caller
 			#TODO: clean text before processing
-			self.tokens = utterance.pos_words()
+			self.tokens = utterance.text_words()
 			self.length = len(self.tokens)
 			self.pos = utterance.regularize_pos_lemmas()
 

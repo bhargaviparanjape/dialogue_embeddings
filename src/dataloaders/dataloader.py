@@ -105,11 +105,14 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 					conversation_id = conversation.id
 				snippets = []
 				dummy_utterance = [AbstractDataset.Utterance([vocabulary.pad_token])]
+				dummy_utterance[0].ids = [0]
 				start_utterance = [AbstractDataset.Utterance([vocabulary.soc])]
 				end_utterance = [AbstractDataset.Utterance([vocabulary.eoc])]
 				if length <= self.conversation_size:
 					snippet = {}
 					snippet["id"] = conversation_id
+					for u_, u in enumerate(conversation.utterances):
+						conversation.utterances[u_].ids = vocabulary.get_indices(u.tokens)
 					snippet["utterances"] = conversation.utterances #end_utterance
 					snippet["range"] = list(range(0, length))
 					snippet["mask"] = [1]*(length)
@@ -119,6 +122,8 @@ class ConversationSnippetDataloader(AbstractDataLoader):
 				else:
 					# Pad with dummpy utterances on both sides
 					padded_dummy_utterances = dummy_utterance*(self.conversation_size-1)
+					for u_, u in enumerate(conversation.utterances):
+						conversation.utterances[u_].ids = vocabulary.get_indices(u.tokens)
 					padded_utterances = padded_dummy_utterances + conversation.utterances + padded_dummy_utterances
 					padded_range = [-1]*(self.conversation_size-1) + list(range(length)) + [-1]*(self.conversation_size-1)
 					for i in range(length + self.conversation_size - 1):
@@ -223,7 +228,7 @@ class SnippetBatcher():
 				new_batch.append(new_item)
 			batch_data = new_batch
 			max_num_utterances = current_max_length
-		max_utterance_length = max([max([len(u.tokens) for u in c["utterances"]]) for c in batch_data])
+		max_utterance_length = max([max([len(u.ids) for u in c["utterances"]]) for c in batch_data])
 
 		# optimize searches in vocabulary do that in the dataloader itself
 		for c_idx, conversation in enumerate(batch_data):
@@ -231,15 +236,15 @@ class SnippetBatcher():
 			utterance_ids_list += conversation["range"]
 			for u_idx, u in enumerate(conversation["utterances"]):
 				utterance_list.append(u.tokens)
-				utterance_vocab_ids = self.vocabulary.get_indices(u.tokens)
+				utterance_vocab_ids = u.ids
 				utterance_word_ids_list.append(pad_seq(utterance_vocab_ids, max_utterance_length))
-				utterance_bow_list.append(list(set(self.vocabulary.get_indices(u.tokens))))
+				utterance_bow_list.append(list(set(utterance_vocab_ids)))
 				labels.append(u.label)
 			utterance_ids_list += [-1] * (max_num_utterances - length)
 			for i in range(max_num_utterances - length):
 				utterance_list.append([self.vocabulary.pad_token])
 				utterance_word_ids_list.append(pad_seq([], max_utterance_length))
-				utterance_bow_list.append([self.vocabulary.vocabulary[self.vocabulary.pad_token]])
+				utterance_bow_list.append([0])
 				labels.append(0)
 			conversation_lengths.append(length)
 			conversation_ids.append(conversation["id"])
@@ -285,6 +290,8 @@ class ConversationDataloader(AbstractDataLoader):
 				## Data item change conversational ids to indices here itself.
 				if hasattr(model.token_encoder, 'conversation_id2idx'):
 					data_item.id = model.token_encoder.conversation_id2idx[data_item.id]
+				for u_, u in enumerate(data_item.utterances):
+					data_item.utterances[u_].ids = vocabulary.get_indices(u.tokens)
 				bucket.append(data_item)
 				bucket_lengths.append(len(data_item.utterances))
 			if mode == "train":
@@ -340,16 +347,16 @@ class Batcher():
 				batch_data[idx].utterances = conversation.utterances[:random_short_length]
 
 		max_num_utterances = max([len(c.utterances) for c in batch_data])
-		max_utterance_length = max([max([len(u.tokens) for u in c.utterances]) for c in batch_data])
+		max_utterance_length = max([max([len(u.ids) for u in c.utterances]) for c in batch_data])
 		for c_idx, conversation in enumerate(batch_data):
 			length = len(conversation.utterances)
 			for u_idx, u in enumerate(conversation.utterances):
 				utterance_list.append(u.tokens)
-				utterance_word_ids_list.append(pad_seq(self.vocabulary.get_indices(u.tokens), max_utterance_length))
+				utterance_word_ids = u.ids
+				utterance_word_ids_list.append(pad_seq(utterance_word_ids, max_utterance_length))
 				utterance_ids_list.append(u_idx)
 				labels.append(u.label)
-				current_utterance_ids = self.vocabulary.get_indices(conversation.utterances[u_idx].tokens)
-				utterance_bow_list.append(list(set(self.vocabulary.get_indices(u.tokens))))
+				utterance_bow_list.append(list(set(utterance_word_ids)))
 
 			conversation_lengths.append(length)
 			conversation_ids.append(conversation.id)
@@ -360,7 +367,7 @@ class Batcher():
 				utterance_word_ids_list.append(pad_seq([], max_utterance_length))
 				utterance_ids_list.append(-1)
 				labels.append(0)
-				utterance_bow_list.append([self.vocabulary.vocabulary[self.vocabulary.pad_token]])
+				utterance_bow_list.append([0])
 
 		batch['size'] = len(utterance_list)
 		# Generate BOW Mask
@@ -441,7 +448,7 @@ class ConversationSnippetBatcher(AbstractDataLoader):
 					utterance_list.append(u.tokens)
 					utterance_vocab_ids = vocabulary.get_indices(u.tokens)
 					utterance_word_ids_list.append(pad_seq(utterance_vocab_ids, max_utterance_length))
-					utterance_bow_list.append(list(set(vocabulary.get_indices(u.tokens))))
+					utterance_bow_list.append(list(set(utterance_vocab_ids)))
 					labels.append(u.label)
 				utterance_ids_list += [-1]*(max_num_utterances - length)
 				for i in range(max_num_utterances - length):
