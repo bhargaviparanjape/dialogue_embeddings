@@ -5,6 +5,10 @@ import math
 import numpy as np
 
 from src.models.factory import RegisterModel
+from src.utils.utility_functions import variable
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from allennlp.nn.util import sort_batch_by_length
+from allennlp.modules.seq2vec_encoders.pytorch_seq2vec_wrapper import PytorchSeq2VecWrapper
 
 
 @RegisterModel('avg_pooling')
@@ -45,3 +49,15 @@ class Recurrent(nn.Module):
 	def __init__(self, args, **kwargs):
 		super(Recurrent, self).__init__()
 		self.args = args
+		self.input_size = args.embed_size
+		self.hidden_size = int(args.embed_size/2)
+		self.num_layers = 1
+		module = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size, num_layers=self.num_layers,
+							batch_first=True, dropout=args.dropout, bidirectional=True)
+		self.lstm = PytorchSeq2VecWrapper(module)
+
+
+	def forward(self, *input):
+		# logic to get rid of bad sequences that have 0 lengths
+		x, x_mask = input[0], input[1]
+		return self.lstm(x, x_mask)
