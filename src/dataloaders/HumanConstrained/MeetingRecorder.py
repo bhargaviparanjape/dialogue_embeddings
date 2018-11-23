@@ -3,7 +3,7 @@ from src.dataloaders.AbstractDataset import AbstractDataset
 from src.dataloaders.HumanSpontaneous.SwitchBoard import DAMSL_TAGSET
 from src.dataloaders.factory import RegisterDataset
 from src.utils.vocabulary import Vocabulary
-import re
+import re,os
 from collections import Counter
 
 MRDA_DAMSL_MAP = { '%' : '%', '%-' : '%--', 'x' : 'x', 't1' : 't1', 't3' : 't3', 't' : 't', 'c' : '##'
@@ -16,7 +16,7 @@ MRDA_DAMSL_MAP = { '%' : '%', '%-' : '%--', 'x' : 'x', 't1' : 't1', 't3' : 't3',
 				   , 'no' : 'no', 'e' : 'e', 'nd' : 'nd', 'q' : '##', 'h' : '##', '+' : '##'}
 
 SIMPLE_TAGS = {
-	"S": 0, "B" : 1, "Q" :2, "FG": 3, "D" : 4, "X" : 5
+	"S": 0, "B" : 1, "Q" :2, "F": 3, "D" : 4, "Z" : 5
 }
 
 MRDA_GENERAL_TAGS = {
@@ -33,23 +33,27 @@ MRDA_SPECIAL_TAGS = {
 @RegisterDataset('mrda')
 class MeetingRecoder(AbstractDataset):
 	class Utterance:
-		def __init__(self, utterance):
+		def __init__(self, utterance, tag_map):
 			self.id = utterance.utterance_id
 			##mapping between DAMSL and tagset used in SWDA
-			self.label = MeetingRecoder.processs_mrda_tag(utterance.da_tag.strip(), type="simple")
+			da_tag = utterance.da_tag.strip()
+			if da_tag != '':
+				self.label = SIMPLE_TAGS[tag_map[utterance.da_tag.strip()]]
+			else:
+				self.label = SIMPLE_TAGS['Z']
 			self.speaker = utterance.speaker
 			self.tokens = utterance.original_text
 			self.length = len(self.tokens)
 
 	class Dialogue:
-		def __init__(self, transcript):
+		def __init__(self, transcript, tag_map):
 			self.id = "mrda_" + str(transcript.conversation_id)
 			self.conversation_length = len(transcript.utterances)
 			self.utterances = []
 			for utterance in transcript.utterances:
 				## only consider data subset that can be tagged with mrda damsl tags
 				# if utterance.da_tag in MRDA_DAMSL_MAP and MRDA_DAMSL_MAP[utterance.da_tag] != "##" and MRDA_DAMSL_MAP[utterance.da_tag] in DAMSL_TAGSET:
-				self.utterances.append(MeetingRecoder.Utterance(utterance))
+				self.utterances.append(MeetingRecoder.Utterance(utterance, tag_map))
 
 	@staticmethod
 	def processs_mrda_tag(tag_string, type="simple"):
@@ -96,6 +100,11 @@ class MeetingRecoder(AbstractDataset):
 		# train, test splits standard
 		self.total_length = 0
 		self.vocabulary = Vocabulary()
+		tag_classmap = open(os.path.join(dataset_path, "map_01b_expanded")).readlines()
+		self.tag_classmap = {}
+		for line in tag_classmap:
+			components  = line.split("\t")
+			self.tag_classmap[components[0].strip()] = components[1].strip()
 		self.label_set_size = len(SIMPLE_TAGS)
 
 		dataset = []
@@ -103,12 +112,7 @@ class MeetingRecoder(AbstractDataset):
 			self.total_length += 1
 			if args.truncate_dataset and self.total_length > 20:
 				break
-			dataset.append(MeetingRecoder.Dialogue(transcript))
-
-		tag_set = []
-		for utterance in corpus.iter_utterances(display_progress=True):
-			tag_set.append(MeetingRecoder.processs_mrda_tag(utterance.da_tag.strip(), type="simple"))
-		tag_counter = Counter(tag_set)
+			dataset.append(MeetingRecoder.Dialogue(transcript, self.tag_classmap))
 
 		#TODO: Exact test-dev split for mrda //actually do cross validation
 		if args.truncate_dataset:

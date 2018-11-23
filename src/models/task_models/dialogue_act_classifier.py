@@ -235,7 +235,7 @@ class DialogueActClassifier(AbstractModel):
 		)
 		word_dict = saved_params['word_dict']
 		state_dict = saved_params['state_dict']
-		args = saved_params['args']
+		args = new_args
 		# TODO: Handle code for replaceing new paramters with older ones
 		# Not handling fixed embedding layer
 		model = DialogueActClassifier(args)
@@ -472,7 +472,7 @@ class DialogueActClassifier(AbstractModel):
 		)
 		word_dict = saved_params['word_dict']
 		state_dict = saved_params['state_dict']
-		args = saved_params['args']
+		args = new_args
 		# TODO: Handle code for replaceing new paramters with older ones
 		# Not handling fixed embedding layer
 		model = DialogueActClassifier(args)
