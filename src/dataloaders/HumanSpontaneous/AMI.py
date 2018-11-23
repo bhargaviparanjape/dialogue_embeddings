@@ -59,11 +59,6 @@ class AmericanMeetingCorpus(AbstractDataset):
 				break
 			dataset.append(AmericanMeetingCorpus.Dialogue(transcript))
 
-		# iterate over all labels to construct label dictionary
-		self.tag_set = set()
-		for utterance in corpus.iter_utterances(display_progress=True):
-			self.tag_set.add(utterance.dialogue_act)
-
 		if args.truncate_dataset:
 			self.train_dataset = dataset[:3]
 			self.valid_dataset = dataset[3:4]
