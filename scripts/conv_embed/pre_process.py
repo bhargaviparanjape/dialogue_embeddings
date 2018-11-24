@@ -35,24 +35,28 @@ def process_conversation(data):
 		character_ids = func(utterances)
 		if torch.cuda.is_available():
 			embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024).cuda(gpu_no)
-			# hidden_representations = torch.FloatTensor()
 			mask = torch.Tensor(character_ids.shape[0], character_ids.shape[1]).cuda(gpu_no)
 			idf_tensor = torch.FloatTensor(idfs[enum_]).cuda(gpu_no)
+			hidden_layers = torch.FloatTensor(character_ids.shape[0], 1024).cuda(gpu_no)
 		else:
 			embeddings = torch.FloatTensor(character_ids.shape[0], character_ids.shape[1], 1024)
 			mask = torch.Tensor(character_ids.shape[0], character_ids.shape[1])
+			hidden_layers = torch.FloatTensor(character_ids.shape[0], 1024)
 			idf_tensor = torch.FloatTensor(idfs[enum_])
 		for i in range(0, character_ids.shape[0], snippet_size):
 			dict = ee(character_ids[i:i + snippet_size].unsqueeze(0))
 			embeddings[i:i + snippet_size] = dict['elmo_representations'][0]
 			mask[i:i + snippet_size] = dict['mask']
+			# check for last layer;
+			hidden_layers[i:i + snippet_size] = \
+				ee._elmo_lstm._elmo_lstm._states[0][1][:hidden_layers[i:i + snippet_size].size(0)]
 		conversation_embeddings = average_embeddings(embeddings, mask)
 		# Variant 1 : Try weighing the different words with idf so that information about hte msot important words is retained
 		weighted_conversation_embeddings = weighted_average_embeddings(embeddings, mask, idf_tensor)
+		hidden_layers = hidden_layers.data.cpu().numpy()
 		# Variant 2: Instead of average, provide the hidden representation of the elmo embeddings
-
-		# conversation_dict["embeddings"] = conversation_embeddings
-		batch_data.append((conversation_id, conversation_embeddings, weighted_conversation_embeddings))
+		batch_data.append((conversation_id, conversation_embeddings, weighted_conversation_embeddings, hidden_layers))
+		ee._elmo_lstm._elmo_lstm._states = None
 	return batch_data
 
 	
@@ -102,8 +106,11 @@ if __name__ == "__main__":
 			'average_elmo', (num_conversations, feature_length), dtype=dt)
 		weighted_elmo_features = h_file.create_dataset(
 			'weighted_elmo', (num_conversations, feature_length), dtype=dt)
-		# final_elmo_features = h_file.create_dataset(
-		# 	'final_elmo', (num_conversations, feature_length), dtype=dt)
+		final_elmo_features = h_file.create_dataset(
+			'final_elmo', (num_conversations, feature_length), dtype=dt)
+
+		# CPU only checking
+		process_conversation(job_data[0])
 
 		conversation_processed = 0
 		## TQDM on this
@@ -111,10 +118,11 @@ if __name__ == "__main__":
 			for r in result:
 				# dump conversation_ids mapped to conversation_processed
 				# dump conversation_processed into h5py
-				conversation_id, average_elmo, weighted_elmo = r
+				conversation_id, average_elmo, weighted_elmo, final_elmo = r
 				conversation_id_map[conversation_id] = conversation_processed
 				average_elmo_features[conversation_processed] = average_elmo.transpose() #reshape
 				weighted_elmo_features[conversation_processed] = weighted_elmo.transpose()
+				final_elmo_features[conversation_processed] = final_elmo.transpose()
 				conversation_processed += 1
 
 
