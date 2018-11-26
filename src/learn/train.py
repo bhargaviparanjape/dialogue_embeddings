@@ -172,3 +172,7 @@ def validate(args, dataloader, model, stats, mode = "dev"):
 	return result
 
 
+def predict(args, dataset, model):
+	_, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset, model)
+	stats = {'timer': Timer(), 'epoch': 0, 'best_valid': 0}
+	result = validate(args, test_dataloader, model, stats, mode="dev")

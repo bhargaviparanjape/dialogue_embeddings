@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 ############### NETWORK #################
 #########################################
 @RegisterModel('da_classifier_network1')
-class DialogueActClassifierNetwork(nn.Module):
+class DialogueActClassifierNetwork1(nn.Module):
 	def __init__(self, args):
 		super(DialogueActClassifierNetwork, self).__init__()
 		self.dialogue_embedder = DialogueEmbedder(args)
@@ -70,7 +70,7 @@ class DialogueActClassifierNetwork(nn.Module):
 ############### NETWORK WRAPPER #################
 #################################################
 @RegisterModel('da_classifier1')
-class DialogueActClassifier(AbstractModel):
+class DialogueActClassifier1(AbstractModel):
 	def __init__(self, args):
 
 		## Initialize environment
@@ -472,7 +472,7 @@ class DialogueActClassifier(AbstractModel):
 		)
 		word_dict = saved_params['word_dict']
 		state_dict = saved_params['state_dict']
-		args = new_args
+		args = saved_params['args']
 		# TODO: Handle code for replaceing new paramters with older ones
 		# Not handling fixed embedding layer
 		model = DialogueActClassifier(args)

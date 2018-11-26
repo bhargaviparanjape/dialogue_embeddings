@@ -64,9 +64,12 @@ def main(args):
 		model.parallelize()
 
 	# Train Model
-	train.train_epochs(args, dataset, model)
+	if args.run_mode == "train":
+		train.train_epochs(args, dataset, model)
 
 	# Predict on Test Set
+	if args.run_mode == "test":
+		train.predict(args, dataset, model)
 
 
 
