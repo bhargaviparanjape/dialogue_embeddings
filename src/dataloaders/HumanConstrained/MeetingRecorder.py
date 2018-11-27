@@ -43,6 +43,7 @@ class MeetingRecoder(AbstractDataset):
 				self.label = SIMPLE_TAGS['Z']
 			self.speaker = utterance.speaker
 			self.tokens = utterance.original_text
+			self.text = " ".join(self.tokens)
 			self.length = len(self.tokens)
 
 	class Dialogue:

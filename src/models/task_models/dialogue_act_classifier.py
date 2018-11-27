@@ -477,7 +477,7 @@ class DialogueActClassifier(AbstractModel):
 		# Not handling fixed embedding layer
 		model = DialogueActClassifier(args)
 		model.network.load_state_dict(state_dict, strict=False)
-		model.set_vocabulary(word_dict)
+		model.vocabulary = word_dict
 		return model
 
 	@staticmethod

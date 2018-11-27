@@ -33,6 +33,7 @@ class AmericanMeetingCorpus(AbstractDataset):
 			self.speaker = utterance.speaker
 			self.tokens = utterance.tokens
 			self.length = len(self.tokens)
+			self.text = " ".join(self.tokens)
 			self.start_time = utterance.start_time
 			self.end_time = utterance.end_time
 

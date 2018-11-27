@@ -19,6 +19,7 @@ class SwitchBoard(AbstractDataset):
 			self.speaker = utterance.caller
 			#TODO: clean text before processing
 			self.tokens = utterance.text_words()
+			self.text = utterance.text
 			self.length = len(self.tokens)
 			self.pos = utterance.regularize_pos_lemmas()
 

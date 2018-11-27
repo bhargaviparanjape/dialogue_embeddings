@@ -95,7 +95,7 @@ def get_dataloader(args, dataset, model):
 
 
 def set_dataset_arguments(args, dataset):
-	if args.model == "da_classifier":
+	if args.model == "da_classifier" or args.model == "da_bow_classifier":
 		vars(args)["output_size"] = dataset.label_set_size
 	elif args.model == "dl_bow" or args.model == "dl_bow1" or args.model == "dl_decoder":
 		vars(args)["output_size"] = len(dataset.vocabulary.vocabulary)
