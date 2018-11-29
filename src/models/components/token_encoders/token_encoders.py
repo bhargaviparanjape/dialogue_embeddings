@@ -5,6 +5,7 @@ import math
 import numpy as np
 import json
 from allennlp.modules.elmo import Elmo, batch_to_ids
+from pytorch_pretrained_bert.tokenization import BertTokenizer
 import pdb
 import codecs
 import h5py
@@ -69,7 +70,7 @@ class AverageELMoEmbedding():
 		h5_path = self.pretrained_embedding_path + ".hdf5"
 		pkl_path = self.pretrained_embedding_path + ".pkl"
 		with h5py.File(h5_path, 'r') as hf:
-			self.embeddings = np.array(hf.get('average_elmo'))
+			self.embeddings = np.array(hf.get('final_elmo'))
 		self.conversation_id2idx = pickle.load(open(pkl_path, "rb"))
 
 	def lookup(self, input):
@@ -95,6 +96,29 @@ class AverageELMoEmbedding():
 			batch_embeddings = np.vstack([batch_embeddings,
 			                              np.random.rand(
 				                              max_num_utterances_batch - len(snippet_embeddings), self.args.embed_size)])
+		batch_embedding_tensor = FloatTensor(batch_embeddings)
+		return batch_embedding_tensor, input_mask
+
+
+	def lookup(self, input):
+		conversation_id_list = input["conversation_ids"]
+		input_mask = FloatTensor(input["input_mask"])
+		max_num_utterances_batch = input['max_num_utterances']
+		utterance_ids_list = input['utterance_ids_list']
+		batch_length = len(conversation_id_list)
+		reshaped_utterance_ids = utterance_ids_list.reshape((batch_length, max_num_utterances_batch))
+		batch_embeddings = []
+		for x, id in enumerate(conversation_id_list):
+			embeddings = self.embeddings[id]
+			# Based on the utterance ID range of the current snippet of this conversation, sample a small subset of utterance embeddings
+			conversation_range = reshaped_utterance_ids[x]
+			snippet_range = conversation_range[np.where(conversation_range >= 0)]
+			# snippet_embeddings = [self.embeddings[self.soc].tolist()] + self.embeddings[id][snippet_range[0]:snippet_range[-1] + 1]\
+			# 						+ [self.embeddings[self.eoc].tolist()]
+			snippet_embeddings = self.embeddings[id][snippet_range[0]:snippet_range[-1] + 1]
+			batch_embeddings += snippet_embeddings
+			batch_embeddings += [np.random.rand(self.args.embed_size).tolist() for i in
+								 range(max_num_utterances_batch - len(snippet_embeddings))]
 		batch_embedding_tensor = FloatTensor(batch_embeddings)
 		return batch_embedding_tensor, input_mask
 
@@ -193,3 +217,19 @@ class LookupEncoder(nn.Module):
 
 	def forward(self, batch):
 		return self.word_embeddings(batch)
+
+# For Bert-like models
+@RegisterModel('wordpiece')
+class WordPieceEncoder(nn.Module):
+	def __init__(self, args, **kwargs):
+		self.pretrained_embedding_path = args.pretrained_embedding_path
+		self.embed_size = args.embed_size
+		self.args = args
+		self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+	def lookup(self, input):
+		text = input["utterance_list"]
+		tokenized_text = self.tokenizer.tokenize(text)
+
+
+
