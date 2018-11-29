@@ -43,6 +43,19 @@ class Average(nn.Module):
 		# output[output != output] = 0
 		return output
 
+@RegisterModel('weighted_avg')
+class WightedAverage(nn.Module):
+	def __init__(self, args, **kwargs):
+		super(WightedAverage, self).__init__()
+		self.args = args
+
+	def forward(self, *input):
+		data, mask, idfs = input[0], input[1], input[2]
+		mask = 1e-6 + mask
+		output = (data * mask.unsqueeze(2)* idfs.unsqueeze(2)).sum(1) / mask.sum(1).unsqueeze(1)
+		# output[output != output] = 0
+		return output
+
 
 @RegisterModel('recurrent')
 class Recurrent(nn.Module):

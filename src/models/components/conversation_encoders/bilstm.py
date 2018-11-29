@@ -16,7 +16,8 @@ class NoEncoder(nn.Module):
 		self.args = args
 
 	def forward(self, x, x_mask):
-		return x, None
+		# return x.unsqueeze(2).expand(x.size(0),x.size(1),2,x.size(2)), None
+		return x.unsqueeze(2), None
 
 
 
