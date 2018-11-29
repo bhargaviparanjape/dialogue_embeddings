@@ -23,6 +23,9 @@ class DialogueEmbedder(nn.Module):
 			self.utterance_encoder = model_factory.get_model_by_name(args.utterance_encoder, args)
 		# conversation_dict = {"input_size" : args.embed_size, "hidden_size" : args.hidden_size, "num_layers": args.num_layers}
 		self.conversation_encoder = model_factory.get_model_by_name(args.conversation_encoder, args)
+		if args.freeze_conversation_encoder:
+			for param in self.conversation_encoder.parameters():
+				param.requires_grad = False
 
 
 	def forward(self, *input):

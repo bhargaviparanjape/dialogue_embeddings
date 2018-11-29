@@ -16,6 +16,7 @@ def add_args(parser):
 	model.add_argument("--utterance-encoder", type=str, default="avg")
 	model.add_argument("--fixed-utterance-encoder", action="store_false", default=True)
 	model.add_argument("--conversation-encoder", type=str, default="bilstm")
+	model.add_argument("--freeze-conversation-encoder", type=str, default=False)
 	model.add_argument("--output-layer", type=str, default="mlp")
 	model.add_argument("--output-weight", type=float, default=1.0)
 	model.add_argument("--network", type=str, default="dl_classifier_network")
