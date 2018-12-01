@@ -66,6 +66,7 @@ def main(args):
 	# Train Model
 	if args.run_mode == "train":
 		train.train_epochs(args, dataset, model)
+		train.predict(args, dataset, model)
 
 	# Predict on Test Set
 	if args.run_mode == "test":
