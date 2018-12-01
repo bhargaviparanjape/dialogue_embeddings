@@ -307,8 +307,8 @@ class DialogueActClassifierNetworkAttend(nn.Module):
 				conversation_mask.unsqueeze(1).expand(conversation_mask.shape[0],conversation_mask.shape[1],conversation_mask.shape[1])
 		weighted_utterances = torch.bmm(masked_conversation_encoded_weights, utterance_reshaped)
 		weighted_utterances = weighted_utterances.view(conversation_batch_size * max_num_utterances_batch, -1)
-
-		label_logits = self.classifier(weighted_utterances)
+		final_encodings = weighted_utterances + utterance_encodings
+		label_logits = self.classifier(final_encodings)
 		new_batch_size = conversation_mask.shape[0]
 		new_conversation_size = conversation_mask.shape[1]
 
@@ -348,7 +348,8 @@ class DialogueActClassifierNetworkAttend(nn.Module):
 		weighted_utterances = torch.bmm(masked_conversation_encoded_weights, utterance_reshaped)
 		weighted_utterances = weighted_utterances.view(conversation_batch_size * max_num_utterances_batch, -1)
 
-		label_logits = self.classifier(weighted_utterances)
+		final_encodings = weighted_utterances + utterance_encodings
+		label_logits = self.classifier(final_encodings)
 
 		## when doing CRF inference; do viterbi decoding
 		h, w = conversation_batch_size, max_num_utterances_batch
