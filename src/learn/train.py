@@ -136,7 +136,7 @@ def train_epochs(args, dataset, model):
 				logger.info("Early stopping after %d epochs" % epoch)
 				logger.info("Best Result : %.4f" % stats['best_valid'])
 				bad_counter = 0
-				# exit(0)
+				exit(0)
 		# Recreate training batches using shuffle
 		logger.info("Creating train batches for epoch {0}".format(epoch+1))
 
