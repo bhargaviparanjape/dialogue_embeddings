@@ -132,7 +132,7 @@ def train_epochs(args, dataset, model):
 		else:
 			bad_counter += 1
 			logger.info("Bad Counter Incremented to %d" % bad_counter)
-			if bad_counter > 30:
+			if bad_counter > 10:
 				logger.info("Early stopping after %d epochs" % epoch)
 				logger.info("Best Result : %.4f" % stats['best_valid'])
 				bad_counter = 0
