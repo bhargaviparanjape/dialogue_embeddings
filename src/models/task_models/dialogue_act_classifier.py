@@ -251,6 +251,194 @@ class DialogueActClassifier1(AbstractModel):
 #########################################
 ############### NETWORK #################
 #########################################
+@RegisterModel('da_classifier_network_attend_dl_embeddings')
+class DialogueActClassifierNetworkAttend(nn.Module):
+	def __init__(self, args):
+		super(DialogueActClassifierNetworkAttend, self).__init__()
+		self.dialogue_embedder = DialogueEmbedder(args)
+
+		self.dialogue_projector = nn.Linear(args.output_input_size, args.embed_size)
+
+		## Define class network
+		## output labels size
+		dict_ = {"input_size": args.embed_size, "hidden_size": args.output_hidden_size, "num_layers" : args.output_num_layers,
+							 "output_size": args.output_size}
+		self.classifier = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
+		self.args = args
+
+		if self.args.objective == "linear_crf":
+			dict_ = {"output_size": args.output_size}
+			self.structured_layer = model_factory.get_model_by_name(args.objective, args, kwargs = dict_)
+
+	def label_cross_entropy(self, label_logits, labels_flattened, mask_flattened):
+		label_log_probs_flat = F.log_softmax(label_logits, dim=1)
+		label_losses_flat = -torch.gather(label_log_probs_flat, dim=1, index=labels_flattened.view(-1, 1))
+		label_losses = label_losses_flat * mask_flattened
+		loss = label_losses.sum() / mask_flattened.float().sum()
+		return loss
+
+	def linear_crf(self, logits_flattened, labels_flattened, mask_flattened, h, w):
+		logits = logits_flattened.view(h,w,-1)
+		labels = labels_flattened.view(h,w,-1)
+		mask = mask_flattened.view(h, w)
+		return self.structured_layer(logits, labels, mask)
+
+	def forward(self, *input):
+		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch , gold_labels] = input
+
+		conversation_encoded, utterance_encodings = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+													   max_num_utterances_batch])
+		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
+
+		# Rejoin both directions
+		conversation_encoded = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+
+		# Project back to embedding space
+		conversation_encoded_projected = self.dialogue_projector(conversation_encoded)
+
+		# attention over dialogue embeddings
+		conversation_reshaped = conversation_encoded_projected.view(conversation_batch_size, max_num_utterances_batch, conversation_encoded_projected.shape[1])
+		utterance_reshaped = utterance_encodings.view(conversation_batch_size, max_num_utterances_batch, utterance_encodings.shape[1])
+		conversation_encoded_attention_weights = torch.bmm(utterance_reshaped, conversation_reshaped.transpose(2,1))
+
+		# compute weighted utterances
+		# mask weights
+		masked_conversation_encoded_weights = conversation_encoded_attention_weights * \
+				conversation_mask.unsqueeze(1).expand(conversation_mask.shape[0],conversation_mask.shape[1],conversation_mask.shape[1])
+		weighted_utterances = torch.bmm(masked_conversation_encoded_weights, utterance_reshaped)
+		weighted_utterances = weighted_utterances.view(conversation_batch_size * max_num_utterances_batch, -1)
+
+		label_logits = self.classifier(weighted_utterances)
+		new_batch_size = conversation_mask.shape[0]
+		new_conversation_size = conversation_mask.shape[1]
+
+		if self.args.objective == "linear_crf":
+			loss = self.linear_crf(label_logits, gold_labels, conversation_mask, new_batch_size, new_conversation_size)
+		else:
+			loss = self.label_cross_entropy(label_logits, gold_labels, conversation_mask)
+
+
+		return loss
+
+	def evaluate(self, *input):
+		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch] = input
+
+		conversation_encoded, utterance_encodings = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+													   max_num_utterances_batch])
+		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
+
+		# Rejoin both directions
+		conversation_encoded = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+
+		# Project back to embedding space
+		conversation_encoded_projected = self.dialogue_projector(conversation_encoded)
+
+		# attention over dialogue embeddings
+		conversation_reshaped = conversation_encoded_projected.view(conversation_batch_size, max_num_utterances_batch,
+																	conversation_encoded_projected.shape[1])
+		utterance_reshaped = utterance_encodings.view(conversation_batch_size, max_num_utterances_batch,
+													  utterance_encodings.shape[1])
+		conversation_encoded_attention_weights = torch.bmm(utterance_reshaped, conversation_reshaped.transpose(2, 1))
+
+		# compute weighted utterances
+		masked_conversation_encoded_weights = conversation_encoded_attention_weights * \
+											  conversation_mask.unsqueeze(1).expand(conversation_mask.shape[0],
+																					conversation_mask.shape[1],
+																					conversation_mask.shape[1])
+		weighted_utterances = torch.bmm(masked_conversation_encoded_weights, utterance_reshaped)
+		weighted_utterances = weighted_utterances.view(conversation_batch_size * max_num_utterances_batch, -1)
+
+		label_logits = self.classifier(weighted_utterances)
+
+		## when doing CRF inference; do viterbi decoding
+		h, w = conversation_batch_size, max_num_utterances_batch
+		if self.args.objective == "linear_crf":
+			best_paths = self.structured_layer._viterbi_decode(label_logits.view(h, w, -1), conversation_mask)
+			best_path_ids = [b[0] for b in best_paths]
+			return best_path_ids
+		return label_logits
+
+
+#########################################
+############### NETWORK #################
+#########################################
+@RegisterModel('da_classifier_network_concat_dl_embeddings')
+class DialogueActClassifierNetworkConcat(nn.Module):
+	def __init__(self, args):
+		super(DialogueActClassifierNetworkConcat, self).__init__()
+		self.dialogue_embedder = DialogueEmbedder(args)
+
+		## Define class network
+		## output labels size
+		dict_ = {"input_size": args.output_input_size + args.embed_size, "hidden_size": args.output_hidden_size, "num_layers" : args.output_num_layers,
+							 "output_size": args.output_size}
+		self.classifier = model_factory.get_model_by_name(args.output_layer, args, kwargs = dict_)
+		self.args = args
+
+		if self.args.objective == "linear_crf":
+			dict_ = {"output_size": args.output_size}
+			self.structured_layer = model_factory.get_model_by_name(args.objective, args, kwargs = dict_)
+
+	def label_cross_entropy(self, label_logits, labels_flattened, mask_flattened):
+		label_log_probs_flat = F.log_softmax(label_logits, dim=1)
+		label_losses_flat = -torch.gather(label_log_probs_flat, dim=1, index=labels_flattened.view(-1, 1))
+		label_losses = label_losses_flat * mask_flattened
+		loss = label_losses.sum() / mask_flattened.float().sum()
+		return loss
+
+	def linear_crf(self, logits_flattened, labels_flattened, mask_flattened, h, w):
+		logits = logits_flattened.view(h,w,-1)
+		labels = labels_flattened.view(h,w,-1)
+		mask = mask_flattened.view(h, w)
+		return self.structured_layer(logits, labels, mask)
+
+	def forward(self, *input):
+		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch , gold_labels] = input
+
+		conversation_encoded, utterance_encodings = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+													   max_num_utterances_batch])
+		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
+
+		# Rejoin both directions
+		conversation_encoded = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+
+		label_logits = self.classifier(torch.cat((conversation_encoded, utterance_encodings), 1))
+		new_batch_size = conversation_mask.shape[0]
+		new_conversation_size = conversation_mask.shape[1]
+
+		if self.args.objective == "linear_crf":
+			loss = self.linear_crf(label_logits, gold_labels, conversation_mask, new_batch_size, new_conversation_size)
+		else:
+			loss = self.label_cross_entropy(label_logits, gold_labels, conversation_mask)
+
+
+		return loss
+
+	def evaluate(self, *input):
+		[token_embeddings, input_mask_variable, conversation_mask, max_num_utterances_batch] = input
+
+		conversation_encoded, utterance_encodings = self.dialogue_embedder([token_embeddings, input_mask_variable, conversation_mask,
+													   max_num_utterances_batch])
+		conversation_batch_size = int(token_embeddings.shape[0] / max_num_utterances_batch)
+
+		# Rejoin both directions
+		conversation_encoded = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
+
+		label_logits = self.classifier(torch.cat((conversation_encoded, utterance_encodings), 1))
+
+		## when doing CRF inference; do viterbi decoding
+		h, w = conversation_batch_size, max_num_utterances_batch
+		if self.args.objective == "linear_crf":
+			best_paths = self.structured_layer._viterbi_decode(label_logits.view(h, w, -1), conversation_mask)
+			best_path_ids = [b[0] for b in best_paths]
+			return best_path_ids
+		return label_logits
+
+
+
+#########################################
+############### NETWORK #################
+#########################################
 @RegisterModel('da_classifier_network')
 class DialogueActClassifierNetwork(nn.Module):
 	def __init__(self, args):
@@ -291,32 +479,14 @@ class DialogueActClassifierNetwork(nn.Module):
 		# Rejoin both directions
 		conversation_encoded = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
 
-		# Reassemble the conversations
-		conversation_encoded_reassembled = conversation_encoded.view(conversation_batch_size,
-																max_num_utterances_batch, conversation_encoded.shape[1])
-		gold_labels_reassembled = gold_labels.view(conversation_batch_size, max_num_utterances_batch)
-
-		# Mask (Only consider the dialogues)
-		dialogue_act_mask = conversation_mask #[:, 2:].contiguous()
-		conversation_encoded_current = conversation_encoded_reassembled #[:, 1:-1, :].contiguous()
-		gold_labels_current = gold_labels_reassembled #[:, 1:-1].contiguous()
-
-
-		# Reflatten the choices, encodings, mask
-		conversation_encoded_flattened = conversation_encoded_current.view(
-			conversation_encoded_current.shape[0]*conversation_encoded_current.shape[1], -1)
-		labels_flattened = gold_labels_current.view(gold_labels_current.shape[0]*gold_labels_current.shape[1], -1)
-		mask_flattened = dialogue_act_mask.view(dialogue_act_mask.shape[0]*dialogue_act_mask.shape[1], -1)
-
-
-		label_logits = self.classifier(conversation_encoded_flattened)
-		new_batch_size = dialogue_act_mask.shape[0]
-		new_conversation_size = dialogue_act_mask.shape[1]
+		label_logits = self.classifier(conversation_encoded)
+		new_batch_size = conversation_mask.shape[0]
+		new_conversation_size = conversation_mask.shape[1]
 
 		if self.args.objective == "linear_crf":
-			loss = self.linear_crf(label_logits, labels_flattened, mask_flattened, new_batch_size, new_conversation_size)
+			loss = self.linear_crf(label_logits, gold_labels, conversation_mask, new_batch_size, new_conversation_size)
 		else:
-			loss = self.label_cross_entropy(label_logits, labels_flattened, mask_flattened)
+			loss = self.label_cross_entropy(label_logits, gold_labels, conversation_mask)
 
 
 		return loss
@@ -331,26 +501,12 @@ class DialogueActClassifierNetwork(nn.Module):
 		# Rejoin both directions
 		conversation_encoded = conversation_encoded.view(conversation_encoded.shape[0], 1, -1).squeeze(1)
 
-		# Reassemble the conversations
-		conversation_encoded_reassembled = conversation_encoded.view(conversation_batch_size,
-																	 max_num_utterances_batch,
-																	 conversation_encoded.shape[1])
-
-		# Mask (Only consider the dialogues)
-		dialogue_act_mask = conversation_mask #[:, 2:].contiguous()
-		conversation_encoded_current = conversation_encoded_reassembled #[:, 1:-1, :].contiguous()
-
-		# Reflatten the choices, encodings, mask
-		conversation_encoded_flattened = conversation_encoded_current.view(
-			conversation_encoded_current.shape[0] * conversation_encoded_current.shape[1], -1)
-		mask_flattened = dialogue_act_mask.view(dialogue_act_mask.shape[0] * dialogue_act_mask.shape[1], -1)
-
-		label_logits = self.classifier(conversation_encoded_flattened)
+		label_logits = self.classifier(conversation_encoded)
 
 		## when doing CRF inference; do viterbi decoding
-		h, w = conversation_encoded_current.shape[0], conversation_encoded_current.shape[1]
+		h, w = conversation_batch_size, max_num_utterances_batch
 		if self.args.objective == "linear_crf":
-			best_paths = self.structured_layer._viterbi_decode(label_logits.view(h, w, -1), dialogue_act_mask)
+			best_paths = self.structured_layer._viterbi_decode(label_logits.view(h, w, -1), conversation_mask)
 			best_path_ids = [b[0] for b in best_paths]
 			return best_path_ids
 		return label_logits
