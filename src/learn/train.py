@@ -61,7 +61,7 @@ def train_epochs_sharedloss(args, dataset, model):
 
 def train_epochs(args, dataset, model):
 	train_dataloader, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset, model)
-	writer = SummaryWriter(args.tensorboard_dir)
+	writer = SummaryWriter(os.path.join(args.tensorboard_dir + args.model_path.replace(".md", "")))
 
 	train_sample = []
 	examples = 0
@@ -136,6 +136,7 @@ def train_epochs(args, dataset, model):
 				logger.info("Early stopping after %d epochs" % epoch)
 				logger.info("Best Result : %.4f" % stats['best_valid'])
 				bad_counter = 0
+				predict(args, dataset, model)
 				exit(0)
 		# Recreate training batches using shuffle
 		logger.info("Creating train batches for epoch {0}".format(epoch+1))
@@ -176,3 +177,4 @@ def predict(args, dataset, model):
 	_, validation_dataloader, test_dataloader = dataloader_factory.get_dataloader(args, dataset, model)
 	stats = {'timer': Timer(), 'epoch': 0, 'best_valid': 0}
 	result = validate(args, test_dataloader, model, stats, mode="dev")
+	logger.info("%s test : %.4f" % result)

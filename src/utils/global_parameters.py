@@ -16,6 +16,7 @@ def add_args(parser):
 	runtime.add_argument("--seed", type=int, default=0)
 	runtime.add_argument("--data-workers", type=int, default=1)
 	runtime.add_argument("--truncate-dataset", action="store_true", default=False)
+	runtime.add_argument("--simulate-low-resource", type=float, default=None)
 	runtime.add_argument("--limit-vocabulary", action="store_true", default=False)
 	runtime.add_argument("--log-level", type=str, default=logging.INFO)
 	runtime.add_argument('--run-mode', type=str, default="train", help="Run mode: {train, test}")

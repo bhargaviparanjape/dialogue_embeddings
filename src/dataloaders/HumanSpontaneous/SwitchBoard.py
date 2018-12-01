@@ -2,6 +2,7 @@ from datasets.swda import swda
 from src.dataloaders.AbstractDataset import AbstractDataset
 from src.dataloaders.factory import RegisterDataset
 from src.utils.vocabulary import Vocabulary
+import numpy as np
 
 DAMSL_TAGSET = {'%':0,'+':1,'^2':2,'^g':3,'^h':4,'^q':5,'aa':6,'aap_am':7,'ad':8,'ar':9,'arp_nd':10,'b':11,'b^m':12
 	,'ba':13,'bd':14,'bf':15,'bh':16,'bk':17,'br':18,'fa':19,'fc':20,'fo_o_fw_"_by_bc':21,'fp':22,'ft':23,'h':24
@@ -35,8 +36,24 @@ class SwitchBoard(AbstractDataset):
 			self.length = transcript.length
 			self.conversation_topic = transcript.topic_description
 			self.utterances = []
+			# self.preprocess_utterances(transcript)
 			for id, utterance in enumerate(transcript.utterances):
+				# Preprocess by joining all the '+' labels to the previous interlocutor:
 				self.utterances.append(SwitchBoard.Utterance(id, utterance))
+
+		def preprocess_utterances(self, transcript):
+			speakers = set([u.caller for u in transcript.utterances])
+			last_speaker_utterence = {u:None for u in speakers}
+			for idx, u in transcript.utterances:
+				current_speaker = u.caller
+				da_tag = u.damsl_act_tag().strip()
+				if da_tag == "+":
+					old_utterance = transcript.utterances[last_speaker_utterence[current_speaker]]
+					old_utterance.text = old_utterance.text + " " + u.text
+				# First utterrence of any speaker will not be '+'
+				if last_speaker_utterence[current_speaker] == None or da_tag != '+':
+					last_speaker_utterence[current_speaker] = idx
+
 
 	def __init__(self, args, dataset_path):
 		corpus = swda.CorpusReader(dataset_path)
@@ -77,7 +94,13 @@ class SwitchBoard(AbstractDataset):
 				else:
 					# unannotated
 					pass
-		## create vocabulary from training data (unks  during test time)
+
+		# Low resource experiments
+		if args.simulate_low_resource != None:
+			num_reduced_samples = int(args.simulate_low_resource*len(self.train_dataset))
+			self.train_dataset = np.random.choice(self.train_dataset, num_reduced_samples, replace=False)
+
+		## create vocabulary from training data (unks during test time)
 		for data_point in self.train_dataset:
 			for utterance in data_point.utterances:
 				self.vocabulary.add_and_get_indices(utterance.tokens)
