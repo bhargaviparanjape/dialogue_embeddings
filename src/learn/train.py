@@ -73,7 +73,7 @@ def train_epochs(args, dataset, model):
 
 	dev_probe_sample = []
 	examples = 0
-	for iteration, batch in enumerate(train_dataloader):
+	for iteration, batch in enumerate(validation_dataloader):
 		dev_probe_sample.append(batch)
 		examples += len(batch)
 		if examples > 1e4:
