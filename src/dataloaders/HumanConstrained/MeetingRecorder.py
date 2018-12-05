@@ -20,6 +20,12 @@ SIMPLE_TAGS = {
 	"S": 0, "B" : 1, "Q" :2, "F": 3, "D" : 4, "Z" : 5
 }
 
+MEDIUM_TAGS = {'FG|QY':0,  'FG|QRR':1,  'H':2,  'QRR':3,  'S':4,  'FG|S':5,  'QH':6,  'QR':7,  'QO':8,  'FH|S':9,  'H|QY':10,  'QW':11,  'FG|QO':12,  'S|QW':13,  'H|S':14,  'H|QH':15,  'H|QO':16,  'FH|QH':17,  'FG|QR':18,  'FG|QW':19,  'S|QO':20,  'D':21,  'B':22,  'S|S':23,  'FH|QW':24,  'FG|QH':25,  'QY':26,  'FH':27,  'S|QY':28,  'H|QW':29,  'QY|S':30,  'H|QR':31,  'Z':32,  'FH|QY':33,  'X':34,  'FH|QO':35,  'S|QR':36,  'S|QH':37,  'FG':38,  'FH|QR':39}
+
+COMPLEX_TAGS = {
+
+}
+
 MRDA_GENERAL_TAGS = {
 	"x" : 0, "s" : 1, "qy": 2, "qw": 3, "qr":4, "qrr":5, "qo":6, "qh":7, "b":8, "fg":9, "fh":10, "h":11
 }
@@ -45,9 +51,9 @@ class MeetingRecoder(AbstractDataset):
 			##mapping between DAMSL and tagset used in SWDA
 			da_tag = utterance.da_tag.strip()
 			if da_tag != '':
-				self.label = SIMPLE_TAGS[tag_map[utterance.da_tag.strip()]]
+				self.label = MEDIUM_TAGS[tag_map[utterance.da_tag.strip()]]
 			else:
-				self.label = SIMPLE_TAGS['Z']
+				self.label = MEDIUM_TAGS['Z']
 			self.speaker = utterance.speaker
 			self.tokens = utterance.original_text
 			self.text = " ".join(self.tokens)
@@ -108,12 +114,12 @@ class MeetingRecoder(AbstractDataset):
 		# train, test splits standard
 		self.total_length = 0
 		self.vocabulary = Vocabulary()
-		tag_classmap = open(os.path.join(dataset_path, "map_01b_expanded")).readlines()
+		tag_classmap = open(os.path.join(dataset_path, "map_03b_expanded")).readlines()
 		self.tag_classmap = {}
 		for line in tag_classmap:
 			components  = line.split("\t")
 			self.tag_classmap[components[0].strip()] = components[1].strip()
-		self.label_set_size = len(SIMPLE_TAGS)
+		self.label_set_size = len(MEDIUM_TAGS)
 
 		dataset = []
 		for transcript in corpus.iter_transcripts(display_progress=True):
