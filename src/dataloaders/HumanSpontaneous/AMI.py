@@ -2,6 +2,7 @@ from datasets.ami import ami
 from src.dataloaders.AbstractDataset import AbstractDataset
 from src.dataloaders.factory import RegisterDataset
 from src.utils.vocabulary import Vocabulary
+import numpy as np
 
 TRAIN_SPLIT = [
 "ES2002", "ES2005", "ES2006", "ES2007", "ES2008", "ES2009", "ES2010", "ES2012", "ES2013", "ES2015", "ES2016",
@@ -76,6 +77,11 @@ class AmericanMeetingCorpus(AbstractDataset):
 					self.valid_dataset.append(dialogue)
 				elif dialogue.id[:-1] in TEST_SPLIT:
 					self.test_dataset.append(dialogue)
+
+		# Low resource experiments
+		if args.simulate_low_resource != None:
+			num_reduced_samples = int(args.simulate_low_resource*len(self.train_dataset))
+			self.train_dataset = np.random.choice(self.train_dataset, num_reduced_samples, replace=False).tolist()
 
 		for data_point in self.train_dataset:
 			for utterance in data_point.utterances:

@@ -4,6 +4,7 @@ from src.dataloaders.HumanSpontaneous.SwitchBoard import DAMSL_TAGSET
 from src.dataloaders.factory import RegisterDataset
 from src.utils.vocabulary import Vocabulary
 import re,os
+import numpy as np
 from collections import Counter
 
 MRDA_DAMSL_MAP = { '%' : '%', '%-' : '%--', 'x' : 'x', 't1' : 't1', 't3' : 't3', 't' : 't', 'c' : '##'
@@ -141,6 +142,10 @@ class MeetingRecoder(AbstractDataset):
 					self.test_dataset.append(dialogue)
 				else:
 					pass
+
+		if args.simulate_low_resource != None:
+			num_reduced_samples = int(args.simulate_low_resource*len(self.train_dataset))
+			self.train_dataset = np.random.choice(self.train_dataset, num_reduced_samples, replace=False).tolist()
 
 
 		## create vocabulary from training data (UNKS  during test time)
