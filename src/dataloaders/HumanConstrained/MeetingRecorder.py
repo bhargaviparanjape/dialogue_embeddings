@@ -30,6 +30,12 @@ MRDA_SPECIAL_TAGS = {
 	"ng" : 31, "no" : 32, "r" : 33,	"rt" : 34, "t" : 35, "tc" : 36, "t1" : 37, "t3" : 38, "2" : 39
 }
 
+# Standard dataset splits
+TRAIN_SPLIT = ['Bdb001', 'Bed002', 'Bed004', 'Bed005', 'Bed008', 'Bed009', 'Bed011', 'Bed013', 'Bed014', 'Bed015', 'Bed017', 'Bmr002', 'Bmr003', 'Bmr006', 'Bmr007', 'Bmr008', 'Bmr009', 'Bmr011', 'Bmr012', 'Bmr015', 'Bmr016', 'Bmr020', 'Bmr021', 'Bmr023', 'Bmr025', 'Bmr026', 'Bmr027', 'Bmr029', 'Bmr031', 'Bns001', 'Bns002', 'Bns003', 'Bro003', 'Bro005', 'Bro007', 'Bro010', 'Bro012', 'Bro013', 'Bro015', 'Bro016', 'Bro017', 'Bro019', 'Bro022', 'Bro023', 'Bro025', 'Bro026', 'Bro028', 'Bsr001', 'Btr001', 'Btr002', 'Buw001']
+DEV_SPLIT = ['Bed003', 'Bed010', 'Bmr005', 'Bmr014', 'Bmr019', 'Bmr024', 'Bmr030', 'Bro004', 'Bro011', 'Bro018', 'Bro024']
+TEST_SPLIT =  ['Bed006', 'Bed012', 'Bed016', 'Bmr001', 'Bmr010', 'Bmr022', 'Bmr028', 'Bro008', 'Bro014', 'Bro021', 'Bro027']
+
+
 @RegisterDataset('mrda')
 class MeetingRecoder(AbstractDataset):
 	class Utterance:
@@ -122,9 +128,20 @@ class MeetingRecoder(AbstractDataset):
 			self.test_dataset = dataset[15:20]
 		else:
 			# Split used by the state of the art
-			self.train_dataset = dataset[:51]
-			self.valid_dataset = dataset[51:62]
-			self.test_dataset = dataset[62:73]
+			self.train_dataset = []
+			self.valid_dataset = []
+			self.test_dataset = []
+			for dialogue in dataset:
+				idx = dialogue.id.split("_")[1]
+				if idx in TRAIN_SPLIT:
+					self.train_dataset.append(dialogue)
+				elif idx in DEV_SPLIT:
+					self.valid_dataset.append(dialogue)
+				elif idx in TEST_SPLIT:
+					self.test_dataset.append(dialogue)
+				else:
+					pass
+
 
 		## create vocabulary from training data (UNKS  during test time)
 		for data_point in self.train_dataset:
