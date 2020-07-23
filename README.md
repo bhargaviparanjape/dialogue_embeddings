@@ -1,1 +1,1 @@
-# dialogue_embeddings
+Code to pretrain a bidirectional LSTM dialogue utternace encoder 
